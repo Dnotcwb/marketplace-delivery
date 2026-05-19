@@ -14,7 +14,7 @@ export interface User {
   photoUrl?: string
 
   role: UserRole
-  restaurantIds?: string[]
+  produtorIds?: string[]
   approved?: boolean
   approvedAt?: Timestamp
   approvedBy?: string

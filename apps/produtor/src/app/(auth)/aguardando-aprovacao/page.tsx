@@ -20,7 +20,7 @@ export default function AguardandoAprovacaoPage() {
         Cadastro em análise
       </h1>
       <p className="mb-6 text-neutral-500">
-        Recebemos seu cadastro e estamos analisando as informações do seu restaurante.
+        Recebemos seu cadastro e estamos analisando as informações da sua horta.
         Você receberá um e-mail assim que a aprovação for concluída.
       </p>
 
@@ -37,7 +37,7 @@ export default function AguardandoAprovacaoPage() {
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">3</span>
-            Configure seu restaurante e comece a receber pedidos.
+            Configure sua horta e comece a receber pedidos.
           </li>
         </ol>
       </div>

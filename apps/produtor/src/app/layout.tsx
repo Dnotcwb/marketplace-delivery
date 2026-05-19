@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: 'Painel do Restaurante — Ambiente Livre',
     template: '%s | Ambiente Livre Produtor',
   },
-  description: 'Gerencie seu restaurante, cardápio e pedidos em tempo real.',
+  description: 'Gerencie sua horta, produtos e pedidos em tempo real.',
 }
 
 export default function RootLayout({

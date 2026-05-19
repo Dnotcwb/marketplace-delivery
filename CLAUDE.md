@@ -114,7 +114,7 @@ apps/<nome-do-app>/
 
 - **TypeScript estrito sempre.** Nada de `any` sem justificativa explícita comentada.
 - **Server Components por padrão** no App Router; Client Components apenas quando há interatividade (`'use client'` no topo).
-- Nomes em PT-BR para domínio de negócio (`Pedido`, `Restaurante`, `Cupom`); infra fica em EN (`fetchOrder`, `signIn`).
+- Nomes em PT-BR para domínio de negócio (`Pedido`, `Produtor`, `Produto`, `Cupom`); infra fica em EN (`fetchOrder`, `signIn`).
 - Arquivos: componentes em `PascalCase.tsx`, hooks em `useNomeDoHook.ts`, utilitários em `kebab-case.ts`.
 - **Toda chamada ao Firestore passa por `packages/shared-services/`** — nunca chamar Firebase diretamente de componentes.
 - Validação de inputs com **Zod**, formulários com **React Hook Form**.
@@ -150,7 +150,7 @@ apps/<nome-do-app>/
 O Firebase Auth recebe uma custom claim `role` que pode ser:
 
 - `cliente` — usa o app consumidor
-- `produtor` — usa o app produtor (vinculado a um ou mais `restaurantId`)
+- `produtor` — usa o app produtor (vinculado a um ou mais `produtorId` via claim `produtorIds`)
 - `admin` — usa o backoffice
 - `entregador` — usa o app entregador
 

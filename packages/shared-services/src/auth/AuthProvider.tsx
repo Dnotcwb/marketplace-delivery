@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 export interface AuthClaims {
   role: UserRole
-  restaurantIds?: string[]
+  produtorIds?: string[]
   approved?: boolean
 }
 
@@ -41,11 +41,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         const tokenResult = await firebaseUser.getIdTokenResult()
         const role = (tokenResult.claims['role'] as UserRole | undefined) ?? 'cliente'
-        const restaurantIds = tokenResult.claims['restaurantIds'] as string[] | undefined
+        const produtorIds = tokenResult.claims['produtorIds'] as string[] | undefined
         const approved = tokenResult.claims['approved'] as boolean | undefined
         setClaims({
           role,
-          ...(restaurantIds !== undefined && { restaurantIds }),
+          ...(produtorIds !== undefined && { produtorIds }),
           ...(approved !== undefined && { approved }),
         })
       } else {

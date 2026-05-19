@@ -47,57 +47,61 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 
 ---
 
-## Etapa 2 — Restaurantes e Produtos
+## Etapa 2 — Produtores e Produtos
 
-**Objetivo:** Produtores conseguem se cadastrar, criar restaurante, adicionar produtos. Consumidores conseguem navegar e buscar.
+> **Domínio:** Neste sistema não há restaurantes. Os vendedores são **produtores** (hortas, agricultores, produtores orgânicos). A entidade principal é `Produtor` (coleção `produtores` no Firestore). Produtos são o que cada horta oferece (Verduras, Frutas, Temperos, Laticínios, etc.).
+
+**Objetivo:** Produtores conseguem se cadastrar, criar seu perfil de horta, adicionar produtos. Consumidores conseguem navegar e buscar.
 
 **Escopo:**
 
 ### No app produtor:
 
-- [ ] Cadastro de produtor (sign-up com aprovação pendente)
-- [ ] Wizard de criação do restaurante:
-  - [ ] Dados básicos (nome, CNPJ, telefone, descrição)
-  - [ ] Endereço (com integração de geocoding via Google Maps ou similar)
-  - [ ] Logo + banner (upload no Storage)
-  - [ ] Horário de funcionamento (por dia da semana)
+- [ ] Wizard de criação do perfil de produtor (horta):
+  - [ ] Dados básicos (nome da horta, CPF/CNPJ, telefone, descrição)
+  - [ ] Endereço (localização da horta)
+  - [ ] Foto + banner da horta (upload no Storage)
+  - [ ] Horário de disponibilidade para pedidos (por dia da semana)
   - [ ] Taxa de entrega (fixa ou por distância)
-  - [ ] Tempo médio de preparo
-- [ ] CRUD de categorias do cardápio (Pratos, Bebidas, Sobremesas, etc.)
+  - [ ] Valor mínimo de pedido
+  - [ ] Tempo estimado de entrega
+  - [ ] Certificações (Orgânico, Agroecológico, etc.)
+- [ ] CRUD de categorias de produtos (Verduras, Frutas, Legumes, Temperos, Laticínios, etc.)
 - [ ] CRUD de produtos:
   - [ ] Nome, descrição, preço (em centavos!)
   - [ ] Foto (Storage)
-  - [ ] Categoria, disponibilidade
-  - [ ] Adicionais e opções (estrutura preparada, UI básica)
-- [ ] Controle de estoque básico (toggle "esgotado")
-- [ ] Status do restaurante: aberto/fechado manual + automático por horário
+  - [ ] Categoria, unidade de medida (kg, g, unidade, maço, dúzia, litro)
+  - [ ] Disponibilidade e estoque
+  - [ ] Certificação orgânica por produto
+- [ ] Controle de estoque básico (toggle "esgotado" + quantidade)
+- [ ] Status do produtor: aceitando pedidos / pausado (manual + automático por horário)
 
 ### No app consumidor:
 
-- [ ] Home com listagem de restaurantes (cards modernos)
-- [ ] Filtro por categoria de restaurante (Pizza, Hamburguer, Japonês...)
-- [ ] Busca com debounce (nome de restaurante ou prato)
-- [ ] Página de restaurante (`/restaurante/[slug]`) com:
-  - [ ] Banner + logo + info
-  - [ ] Status (aberto/fechado, tempo de entrega, taxa)
-  - [ ] Cardápio agrupado por categoria
-  - [ ] Click em produto abre modal com detalhes + adicionais
-- [ ] Geolocalização (pedir permissão, mostrar só restaurantes na área)
+- [ ] Home com listagem de produtores/hortas (cards modernos)
+- [ ] Filtro por categoria de produto (Verduras, Frutas, Orgânicos...)
+- [ ] Busca com debounce (nome do produtor ou produto)
+- [ ] Página do produtor (`/produtor/[slug]`) com:
+  - [ ] Banner + foto + info da horta
+  - [ ] Status (disponível/indisponível, tempo de entrega, taxa)
+  - [ ] Catálogo agrupado por categoria
+  - [ ] Click no produto abre modal com detalhes
+- [ ] Geolocalização (pedir permissão, mostrar só produtores na área)
 
 ### No backoffice:
 
-- [ ] Lista de restaurantes pendentes de aprovação
-- [ ] Aprovar/rejeitar restaurante (seta custom claim `approved: true`)
-- [ ] Visualizar dados completos do restaurante
+- [ ] Lista de produtores pendentes de aprovação
+- [ ] Aprovar/rejeitar produtor (seta custom claim `approved: true` + `produtorIds`)
+- [ ] Visualizar dados completos do produtor
 
 ### Compartilhado:
 
-- [ ] Tipos: `Restaurant`, `Product`, `Category` em `shared-types`
-- [ ] Services: `restaurantService`, `productService` em `shared-services`
-- [ ] Regras Firestore para `restaurants`, `products`, `categories`
+- [ ] Tipos: `Produtor`, `Product`, `Category` em `shared-types`
+- [ ] Services: `produtorService`, `productService` em `shared-services`
+- [ ] Regras Firestore já atualizadas para `produtores`, `products`, `categories`
 - [ ] Índices Firestore (por geolocalização, por categoria)
 
-**Critério de conclusão:** Um produtor pode se cadastrar, ser aprovado pelo admin, montar um cardápio completo, e o consumidor consegue ver esse restaurante e seus produtos.
+**Critério de conclusão:** Um produtor pode se cadastrar, ser aprovado pelo admin, montar um catálogo completo, e o consumidor consegue ver esse produtor e seus produtos.
 
 ---
 

@@ -28,10 +28,11 @@ service cloud.firestore {
       return isAuthenticated() && userRole() == 'entregador';
     }
 
-    function isOwnerOfRestaurant(restaurantId) {
+    // Verifica se o usuário autenticado é dono do perfil de produtor
+    function isOwnerOfProdutor(produtorId) {
       return isProducer() &&
-             request.auth.token.restaurantIds != null &&
-             restaurantId in request.auth.token.restaurantIds;
+             request.auth.token.produtorIds != null &&
+             produtorId in request.auth.token.produtorIds;
     }
 
     function hasOnlyAllowedFields(allowedFields) {
@@ -75,37 +76,36 @@ service cloud.firestore {
       }
     }
 
-    // ==================== RESTAURANTS ====================
-    match /restaurants/{restaurantId} {
+    // ==================== PRODUTORES (hortas) ====================
+    match /produtores/{produtorId} {
       allow read: if resource.data.status == 'approved'
-                  || isOwnerOfRestaurant(restaurantId)
+                  || isOwnerOfProdutor(produtorId)
                   || isAdmin();
 
       allow create: if isProducer()
                     && request.resource.data.ownerUid == userId()
                     && request.resource.data.status == 'pending';
 
-      allow update: if (isOwnerOfRestaurant(restaurantId)
+      allow update: if (isOwnerOfProdutor(produtorId)
                        && isUnchanged('status')
                        && isUnchanged('commission')
-                       && isUnchanged('approvedAt')
-                       && isUnchanged('cnpj'))
+                       && isUnchanged('approvedAt'))
                     || isAdmin();
 
       allow delete: if false;
 
       match /categories/{categoryId} {
         allow read: if true;
-        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow write: if isOwnerOfProdutor(produtorId) || isAdmin();
       }
 
       match /products/{productId} {
         allow read: if true;
-        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow write: if isOwnerOfProdutor(produtorId) || isAdmin();
       }
 
       match /stats/{date} {
-        allow read: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow read: if isOwnerOfProdutor(produtorId) || isAdmin();
         allow write: if false;
       }
     }
@@ -113,7 +113,7 @@ service cloud.firestore {
     // ==================== ORDERS ====================
     match /orders/{orderId} {
       allow read: if (isAuthenticated() && resource.data.customerId == userId())
-                  || (isProducer() && isOwnerOfRestaurant(resource.data.restaurantId))
+                  || (isProducer() && isOwnerOfProdutor(resource.data.produtorId))
                   || (isDriver() && resource.data.deliveryDriverId == userId())
                   || isAdmin();
 
@@ -121,7 +121,7 @@ service cloud.firestore {
 
       allow update: if isAdmin()
                     || (isProducer()
-                        && isOwnerOfRestaurant(resource.data.restaurantId)
+                        && isOwnerOfProdutor(resource.data.produtorId)
                         && hasOnlyAllowedFields(['status', 'statusHistory',
                                                   'confirmedAt', 'preparingAt',
                                                   'readyAt', 'onDeliveryAt']))

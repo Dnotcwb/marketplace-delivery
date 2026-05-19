@@ -6,7 +6,7 @@ const PUBLIC_PATHS = [
   '/cadastro',
   '/recuperar-senha',
   '/acesso-negado',
-  '/restaurante',
+  '/produtor',
   '/busca',
   '/categorias',
   '/categoria',

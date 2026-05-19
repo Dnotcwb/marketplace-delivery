@@ -5,7 +5,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 interface SetRoleData {
   uid: string
   role: 'cliente' | 'produtor' | 'admin' | 'entregador'
-  restaurantIds?: string[]
+  produtorIds?: string[]
   approved?: boolean
 }
 
@@ -16,14 +16,14 @@ export const setUserRole = onCall<SetRoleData>(
       throw new HttpsError('permission-denied', 'Apenas administradores podem alterar roles.')
     }
 
-    const { uid, role, restaurantIds, approved } = request.data
+    const { uid, role, produtorIds, approved } = request.data
 
     if (!uid || !role) {
       throw new HttpsError('invalid-argument', 'uid e role são obrigatórios.')
     }
 
     const claims: Record<string, unknown> = { role }
-    if (restaurantIds !== undefined) claims['restaurantIds'] = restaurantIds
+    if (produtorIds !== undefined) claims['produtorIds'] = produtorIds
     if (approved !== undefined) claims['approved'] = approved
 
     await admin.auth().setCustomUserClaims(uid, claims)
