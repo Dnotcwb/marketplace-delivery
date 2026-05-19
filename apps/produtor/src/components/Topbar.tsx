@@ -1,15 +1,30 @@
 'use client'
 
 import { useAuth } from '@marketplace/shared-services'
+import { toggleProdutorOpen } from '@marketplace/shared-services'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
 
 export default function Topbar() {
   const { user, logout } = useAuth()
   const router = useRouter()
+  const { produtor } = useProdutorAtivo()
+  const [toggling, setToggling] = useState(false)
 
   async function handleLogout() {
     await logout()
     router.push('/login')
+  }
+
+  async function handleToggleOpen() {
+    if (!produtor || toggling) return
+    setToggling(true)
+    try {
+      await toggleProdutorOpen(produtor.id, produtor.isOpen)
+    } finally {
+      setToggling(false)
+    }
   }
 
   const inicial = user?.displayName?.charAt(0).toUpperCase()
@@ -19,11 +34,40 @@ export default function Topbar() {
   return (
     <header className="flex h-16 items-center justify-between border-b border-neutral-200 bg-white px-6">
       {/* Status do produtor — toggle aberto/fechado */}
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500">
-          <span className="h-2 w-2 rounded-full bg-neutral-300" aria-hidden="true" />
-          Produtor não configurado
-        </span>
+      <div className="flex items-center gap-3">
+        {produtor?.status === 'approved' ? (
+          <button
+            type="button"
+            onClick={handleToggleOpen}
+            disabled={toggling}
+            className={[
+              'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60',
+              produtor.isOpen
+                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200',
+            ].join(' ')}
+            aria-label={produtor.isOpen ? 'Fechar horta' : 'Abrir horta'}
+          >
+            <span
+              className={[
+                'h-2 w-2 rounded-full',
+                produtor.isOpen ? 'bg-emerald-500' : 'bg-neutral-400',
+              ].join(' ')}
+              aria-hidden="true"
+            />
+            {toggling ? 'Atualizando…' : produtor.isOpen ? 'Aberta — clique para fechar' : 'Fechada — clique para abrir'}
+          </button>
+        ) : produtor?.status === 'pending' ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-600">
+            <span className="h-2 w-2 rounded-full bg-amber-400" aria-hidden="true" />
+            Aguardando aprovação
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500">
+            <span className="h-2 w-2 rounded-full bg-neutral-300" aria-hidden="true" />
+            Produtor não configurado
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

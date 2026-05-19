@@ -80,6 +80,7 @@ service cloud.firestore {
     match /produtores/{produtorId} {
       allow read: if resource.data.status == 'approved'
                   || isOwnerOfProdutor(produtorId)
+                  || (isProducer() && resource.data.ownerUid == userId())
                   || isAdmin();
 
       allow create: if isProducer()

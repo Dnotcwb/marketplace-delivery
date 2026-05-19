@@ -15,6 +15,10 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 
+function newId(col: ReturnType<typeof collection>): string {
+  return doc(col).id
+}
+
 // ──────────────────────────────────────────────────────
 //  Paths
 // ──────────────────────────────────────────────────────
@@ -57,15 +61,16 @@ export function subscribeToCategories(
 
 export async function createCategory(
   produtorId: string,
-  id: string,
-  data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>,
-): Promise<void> {
+  data: Omit<Category, 'id' | 'produtorId' | 'createdAt' | 'updatedAt'>,
+): Promise<string> {
+  const id = newId(categoriesCol(produtorId))
   await setDoc(categoryDoc(produtorId, id), {
     ...data,
     produtorId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
+  return id
 }
 
 export async function updateCategory(
@@ -109,8 +114,12 @@ export async function listProductsByCategory(
 export function subscribeToProducts(
   produtorId: string,
   callback: (products: Product[]) => void,
+  categoryId?: string,
 ): Unsubscribe {
-  const q = query(productsCol(produtorId), orderBy('order', 'asc'))
+  const base = productsCol(produtorId)
+  const q = categoryId
+    ? query(base, where('categoryId', '==', categoryId), orderBy('order', 'asc'))
+    : query(base, orderBy('order', 'asc'))
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product))
   })
@@ -122,15 +131,16 @@ export function subscribeToProducts(
 
 export async function createProduct(
   produtorId: string,
-  id: string,
-  data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
-): Promise<void> {
+  data: Omit<Product, 'id' | 'produtorId' | 'createdAt' | 'updatedAt'>,
+): Promise<string> {
+  const id = newId(productsCol(produtorId))
   await setDoc(productDoc(produtorId, id), {
     ...data,
     produtorId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
+  return id
 }
 
 export async function updateProduct(
