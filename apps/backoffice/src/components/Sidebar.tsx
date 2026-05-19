@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { usePendingCount } from '@/hooks/usePendingCount'
 import Logo from './Logo'
 
 const MENU = [
@@ -73,6 +74,7 @@ const MENU = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const pendingCount = usePendingCount()
 
   return (
     <aside className="flex w-64 flex-col bg-brand-900">
@@ -110,9 +112,13 @@ export default function Sidebar() {
                     {item.icon}
                   </span>
                   {item.label}
-                  {active && (
+                  {item.href === '/produtores' && pendingCount > 0 ? (
+                    <span className="ml-auto rounded-full bg-amber-400 px-1.5 py-0.5 text-xs font-bold text-amber-900">
+                      {pendingCount}
+                    </span>
+                  ) : active ? (
                     <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand-400" aria-hidden="true" />
-                  )}
+                  ) : null}
                 </Link>
               </li>
             )

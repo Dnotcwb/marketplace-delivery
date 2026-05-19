@@ -34,6 +34,34 @@ export async function getProdutorBySlug(slug: string): Promise<Produtor | null> 
   return { id: d.id, ...d.data() } as Produtor
 }
 
+/** Retorna todos os produtores (apenas admin). */
+export async function listAllProdutores(): Promise<Produtor[]> {
+  const q = query(collection(firestore, COL), orderBy('createdAt', 'desc'))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Produtor)
+}
+
+/** Listener em tempo real para todos os produtores (apenas admin). */
+export function subscribeToAllProdutores(
+  callback: (produtores: Produtor[]) => void,
+): Unsubscribe {
+  const q = query(collection(firestore, COL), orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Produtor))
+  })
+}
+
+/** Listener em tempo real só do count de produtores pendentes (para badge do sidebar). */
+export function subscribeToPendingCount(
+  callback: (count: number) => void,
+): Unsubscribe {
+  const q = query(
+    collection(firestore, COL),
+    where('status', '==', 'pending' satisfies ProdutorStatus),
+  )
+  return onSnapshot(q, (snap) => callback(snap.size))
+}
+
 /** Retorna produtores aprovados (para o consumidor). */
 export async function listProdutoresAprovados(): Promise<Produtor[]> {
   const q = query(
