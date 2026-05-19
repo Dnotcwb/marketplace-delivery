@@ -7,14 +7,22 @@ const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
+  weight: ['400', '500', '600', '700', '900'],
 })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Delivery',
-    template: '%s | Delivery',
+    default: 'Ambiente Livre — Delivery',
+    template: '%s | Ambiente Livre',
   },
-  description: 'Peça comida dos melhores restaurantes da sua cidade.',
+  description: 'Peça comida dos melhores restaurantes da sua cidade com entrega rápida.',
+  keywords: ['delivery', 'comida', 'restaurante', 'pedido online', 'Ambiente Livre'],
+  openGraph: {
+    title: 'Ambiente Livre — Delivery',
+    description: 'Peça comida dos melhores restaurantes da sua cidade.',
+    type: 'website',
+    locale: 'pt_BR',
+  },
 }
 
 export default function RootLayout({

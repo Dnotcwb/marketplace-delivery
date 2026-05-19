@@ -10,20 +10,49 @@ Princípios de design, design tokens e padrões visuais válidos para os 4 apps.
 - **Feedback constante.** Toast, skeleton, loading, sucesso visível. Nunca deixar o usuário com dúvida do que aconteceu.
 - **Acessibilidade não é opcional.** WCAG 2.1 AA mínimo.
 
-## Identidade Visual
+## Identidade Visual — Ambiente Livre
 
-### Paleta de cores
+> **Fonte de verdade:** `assets/branding/Logo_Separado.png` e `assets/branding/Manual de Marca_Ambiente Livre.pdf`
 
-Cada app **compartilha a paleta semântica**, mas pode ter cor de marca distinta:
+### Marca
 
-| App | Cor de marca primária | Justificativa |
-|-----|----------------------|---------------|
-| Consumidor | Vermelho `#EA1D2C` (à la iFood) | Apetite, urgência |
-| Produtor | Verde `#3CB371` ou azul `#1976D2` | Operação calma, profissional |
-| Backoffice | Cinza-azul `#37474F` ou roxo `#5E35B1` | Sério, corporativo |
-| Entregador | Amarelo `#FFC107` | Alta visibilidade |
+**Nome:** Ambiente Livre  
+**Símbolo:** Árvore com folhas circulares sustentada por duas mãos — representa natureza, cuidado e comunidade.  
+**Arquivo da logo:** `assets/branding/Logo_Separado.png` → copiada para `public/logo.png` em cada app.  
+**Favicon:** SVG gerado em `src/app/icon.svg` em cada app (detecção automática pelo Next.js App Router).
 
-**Cor primária é decidida na Etapa 1.** Para começar, **vermelho `#EA1D2C` no consumidor** é a sugestão.
+### Paleta oficial extraída do logotipo
+
+Todos os 3 apps usam **a mesma escala de tokens** — a diferença visual vem de *como* os tokens são aplicados em cada contexto (sidebar bg, botões, ícones), não dos valores hexadecimais em si.
+
+| Token | Hex | Uso |
+|-------|-----|-----|
+| `brand-50`  | `#EEF8F4` | Background de estados hover leve |
+| `brand-100` | `#CCE8DF` | Badge, pill, chip |
+| `brand-200` | `#9CCFC0` | Borda em foco |
+| `brand-300` | `#6BBBA9` | Texto em sidebar escura (produtor/backoffice) |
+| `brand-400` | `#4FA593` | Ícones ativos em sidebar escura |
+| `brand-500` | `#4A9080` | **Cor primária** — botões, links, foco (círculos do logotipo) |
+| `brand-600` | `#3A7267` | Hover de botões primários |
+| `brand-700` | `#2B5649` | Active, pressed — galhos do logotipo |
+| `brand-800` | `#1C3C2E` | Background da sidebar do produtor |
+| `brand-900` | `#112520` | Background da sidebar do backoffice — mãos do logotipo |
+| `brand-950` | `#08130F` | Ultra-escuro (bordas internas de sidebar) |
+
+### Diferenciação por app (uso dos tokens)
+
+| App | Sidebar bg | Primary CTA | Active nav |
+|-----|-----------|-------------|------------|
+| Consumidor | branco (`bg-white`) | `brand-500` | `brand-500`/`brand-50` |
+| Produtor | `brand-800` | `brand-500` | `brand-900/60` + texto branco |
+| Backoffice | `brand-900` | `brand-500` | `brand-800` + texto branco |
+
+### Arquivo de tokens TypeScript
+
+```typescript
+// packages/shared-ui/src/tokens/colors.ts
+import { brand, semantic, orderStatus } from '@marketplace/shared-ui'
+```
 
 ### Tokens semânticos (iguais nos 4 apps)
 

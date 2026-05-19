@@ -3,19 +3,19 @@
 @theme inline {
   --font-sans: var(--font-inter);
 
-  /* Cor de marca — Produtor: verde profissional */
-  --color-brand-50:  #ECFDF5;
-  --color-brand-100: #D1FAE5;
-  --color-brand-200: #A7F3D0;
-  --color-brand-300: #6EE7B7;
-  --color-brand-400: #34D399;
-  --color-brand-500: #3CB371;
-  --color-brand-600: #2E9E60;
-  --color-brand-700: #1F7A48;
-  --color-brand-800: #165534;
-  --color-brand-900: #0E3D24;
+  /* Paleta Ambiente Livre — mesma escala dos demais apps */
+  --color-brand-50:  #EEF8F4;
+  --color-brand-100: #CCE8DF;
+  --color-brand-200: #9CCFC0;
+  --color-brand-300: #6BBBA9;
+  --color-brand-400: #4FA593;
+  --color-brand-500: #4A9080;
+  --color-brand-600: #3A7267;
+  --color-brand-700: #2B5649;
+  --color-brand-800: #1C3C2E;
+  --color-brand-900: #112520;
+  --color-brand-950: #08130F;
 
-  /* Neutros */
   --color-neutral-50:  #F8FAFC;
   --color-neutral-100: #F1F5F9;
   --color-neutral-200: #E2E8F0;
@@ -27,11 +27,23 @@
   --color-neutral-800: #1E293B;
   --color-neutral-900: #0F172A;
 
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error:   #EF4444;
-  --color-info:    #3B82F6;
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-error:   #DC2626;
+  --color-info:    #2563EB;
+
+  --color-order-pending:     #D97706;
+  --color-order-confirmed:   #2563EB;
+  --color-order-preparing:   #7C3AED;
+  --color-order-ready:       #0891B2;
+  --color-order-on-delivery: #16A34A;
+  --color-order-delivered:   #15803D;
+  --color-order-cancelled:   #DC2626;
 }
+
+html { scroll-behavior: smooth; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+:focus-visible { outline: 2px solid var(--color-brand-400); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

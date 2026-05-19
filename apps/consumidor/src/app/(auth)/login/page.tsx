@@ -43,8 +43,10 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mb-2 text-4xl">🍔</div>
-          <h1 className="text-2xl font-bold text-neutral-900">Entrar</h1>
+          <div className="mb-4 flex justify-center">
+            <img src="/logo.png" alt="Ambiente Livre" className="h-16 w-auto" />
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900">Bem-vindo de volta</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Não tem conta?{' '}
             <Link href="/cadastro" className="text-brand-500 hover:underline">

@@ -7,14 +7,15 @@ const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
+  weight: ['400', '500', '600', '700', '900'],
 })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Painel do Restaurante',
-    template: '%s | Painel',
+    default: 'Painel do Restaurante — Ambiente Livre',
+    template: '%s | Ambiente Livre Produtor',
   },
-  description: 'Gerencie seu restaurante, pedidos e cardápio.',
+  description: 'Gerencie seu restaurante, cardápio e pedidos em tempo real.',
 }
 
 export default function RootLayout({

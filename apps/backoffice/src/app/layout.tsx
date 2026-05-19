@@ -7,14 +7,15 @@ const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
+  weight: ['400', '500', '600', '700', '900'],
 })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Backoffice',
+    default: 'Backoffice — Ambiente Livre',
     template: '%s | Backoffice',
   },
-  description: 'Administração da plataforma de delivery.',
+  description: 'Administração da plataforma Ambiente Livre.',
 }
 
 export default function RootLayout({

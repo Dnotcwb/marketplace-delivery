@@ -1,21 +1,32 @@
 @import "tailwindcss";
 
 @theme inline {
+  /* ────────────────────────────────────────────
+     Tipografia
+     Fonte: Inter (Google Fonts) — moderna, legível
+  ──────────────────────────────────────────── */
   --font-sans: var(--font-inter);
 
-  /* Cor de marca — Consumidor: vermelho iFood */
-  --color-brand-50:  #FEE2E5;
-  --color-brand-100: #FEC9CE;
-  --color-brand-200: #FD9EA8;
-  --color-brand-300: #FB6070;
-  --color-brand-400: #F72F43;
-  --color-brand-500: #EA1D2C;
-  --color-brand-600: #C81222;
-  --color-brand-700: #A00F1B;
-  --color-brand-800: #7A0D15;
-  --color-brand-900: #540A0F;
+  /* ────────────────────────────────────────────
+     Paleta Ambiente Livre — escala completa
+     (idêntica nos 3 apps; diferença é como os
+     tokens são usados em cada contexto)
+  ──────────────────────────────────────────── */
+  --color-brand-50:  #EEF8F4;
+  --color-brand-100: #CCE8DF;
+  --color-brand-200: #9CCFC0;
+  --color-brand-300: #6BBBA9;
+  --color-brand-400: #4FA593;
+  --color-brand-500: #4A9080;
+  --color-brand-600: #3A7267;
+  --color-brand-700: #2B5649;
+  --color-brand-800: #1C3C2E;
+  --color-brand-900: #112520;
+  --color-brand-950: #08130F;
 
-  /* Neutros */
+  /* ────────────────────────────────────────────
+     Neutros — slate (padrão Tailwind)
+  ──────────────────────────────────────────── */
   --color-neutral-50:  #F8FAFC;
   --color-neutral-100: #F1F5F9;
   --color-neutral-200: #E2E8F0;
@@ -27,13 +38,45 @@
   --color-neutral-800: #1E293B;
   --color-neutral-900: #0F172A;
 
-  /* Status semânticos */
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error:   #EF4444;
-  --color-info:    #3B82F6;
+  /* ────────────────────────────────────────────
+     Estados semânticos
+  ──────────────────────────────────────────── */
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-error:   #DC2626;
+  --color-info:    #2563EB;
+
+  /* ────────────────────────────────────────────
+     Status de pedido (compartilhado)
+  ──────────────────────────────────────────── */
+  --color-order-pending:     #D97706;
+  --color-order-confirmed:   #2563EB;
+  --color-order-preparing:   #7C3AED;
+  --color-order-ready:       #0891B2;
+  --color-order-on-delivery: #16A34A;
+  --color-order-delivered:   #15803D;
+  --color-order-cancelled:   #DC2626;
 }
 
+/* ────────────────────────────────────────────
+   Base global
+──────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Outline de foco acessível — nunca remover sem substituir */
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Respeitar preferência de movimento reduzido */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
