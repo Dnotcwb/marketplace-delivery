@@ -2,7 +2,10 @@ import * as admin from 'firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import * as functionsV1 from 'firebase-functions/v1'
 
-export const onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
+export const onUserCreated = functionsV1
+  .region('southamerica-east1')
+  .auth.user()
+  .onCreate(async (user) => {
   const { uid, email, displayName, photoURL } = user
 
   await admin.firestore().collection('users').doc(uid).set({
