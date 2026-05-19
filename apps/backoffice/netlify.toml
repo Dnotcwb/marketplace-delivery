@@ -1,6 +1,6 @@
 [build]
-  command = "cd ../.. && pnpm install --frozen-lockfile && pnpm turbo build --filter=@marketplace/backoffice"
-  publish = ".next"
+  command = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@marketplace/backoffice"
+  publish = "apps/backoffice/.next"
 
 [build.environment]
   NODE_VERSION = "22"
