@@ -1,0 +1,7 @@
+[build]
+  command = "cd ../.. && pnpm install --frozen-lockfile && pnpm turbo build --filter=@marketplace/consumidor"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "11"
