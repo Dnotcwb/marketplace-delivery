@@ -1,0 +1,181 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================== HELPERS ====================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userId() {
+      return request.auth.uid;
+    }
+
+    function userRole() {
+      return request.auth.token.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && userRole() == 'admin';
+    }
+
+    function isProducer() {
+      return isAuthenticated() && userRole() == 'produtor';
+    }
+
+    function isDriver() {
+      return isAuthenticated() && userRole() == 'entregador';
+    }
+
+    function isOwnerOfRestaurant(restaurantId) {
+      return isProducer() &&
+             request.auth.token.restaurantIds != null &&
+             restaurantId in request.auth.token.restaurantIds;
+    }
+
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly(allowedFields);
+    }
+
+    function isUnchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ==================== USERS ====================
+    match /users/{uid} {
+      allow create: if isAuthenticated() && userId() == uid
+                    && request.resource.data.role == 'cliente'
+                    && request.resource.data.uid == uid;
+
+      allow read: if userId() == uid || isAdmin();
+
+      allow update: if (userId() == uid
+                       && isUnchanged('role')
+                       && isUnchanged('approved')
+                       && isUnchanged('uid'))
+                    || isAdmin();
+
+      allow delete: if false;
+
+      match /addresses/{addressId} {
+        allow read, write: if userId() == uid;
+      }
+
+      match /fcmTokens/{tokenId} {
+        allow read, write: if userId() == uid;
+      }
+
+      match /notifications/{notifId} {
+        allow read: if userId() == uid;
+        allow update: if userId() == uid && hasOnlyAllowedFields(['read']);
+        allow create, delete: if false;
+      }
+    }
+
+    // ==================== RESTAURANTS ====================
+    match /restaurants/{restaurantId} {
+      allow read: if resource.data.status == 'approved'
+                  || isOwnerOfRestaurant(restaurantId)
+                  || isAdmin();
+
+      allow create: if isProducer()
+                    && request.resource.data.ownerUid == userId()
+                    && request.resource.data.status == 'pending';
+
+      allow update: if (isOwnerOfRestaurant(restaurantId)
+                       && isUnchanged('status')
+                       && isUnchanged('commission')
+                       && isUnchanged('approvedAt')
+                       && isUnchanged('cnpj'))
+                    || isAdmin();
+
+      allow delete: if false;
+
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+      }
+
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+      }
+
+      match /stats/{date} {
+        allow read: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // ==================== ORDERS ====================
+    match /orders/{orderId} {
+      allow read: if (isAuthenticated() && resource.data.customerId == userId())
+                  || (isProducer() && isOwnerOfRestaurant(resource.data.restaurantId))
+                  || (isDriver() && resource.data.deliveryDriverId == userId())
+                  || isAdmin();
+
+      allow create: if false;
+
+      allow update: if isAdmin()
+                    || (isProducer()
+                        && isOwnerOfRestaurant(resource.data.restaurantId)
+                        && hasOnlyAllowedFields(['status', 'statusHistory',
+                                                  'confirmedAt', 'preparingAt',
+                                                  'readyAt', 'onDeliveryAt']))
+                    || (isDriver()
+                        && resource.data.deliveryDriverId == userId()
+                        && hasOnlyAllowedFields(['status', 'statusHistory',
+                                                  'driverLocation',
+                                                  'driverLocationUpdatedAt',
+                                                  'deliveredAt']))
+                    || (isAuthenticated()
+                        && resource.data.customerId == userId()
+                        && resource.data.status == 'pending'
+                        && request.resource.data.status == 'cancelled');
+
+      allow delete: if false;
+    }
+
+    // ==================== COUPONS ====================
+    match /coupons/{couponCode} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ==================== DELIVERY DRIVERS ====================
+    match /deliveryDrivers/{driverId} {
+      allow read: if (isDriver() && userId() == driverId) || isAdmin();
+
+      allow create: if isDriver()
+                    && userId() == driverId
+                    && request.resource.data.status == 'pending_approval';
+
+      allow update: if (isDriver() && userId() == driverId
+                       && isUnchanged('status')
+                       && isUnchanged('approvedAt'))
+                    || isAdmin();
+
+      allow delete: if false;
+    }
+
+    // ==================== AUDIT LOGS ====================
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ==================== APP CONFIG ====================
+    match /appConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==================== DEFAULT DENY ====================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

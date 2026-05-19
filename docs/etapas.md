@@ -1,0 +1,349 @@
+# Roadmap de Etapas
+
+Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de conclusão. Sempre consulte antes de começar uma sessão para saber em que ponto o projeto está.
+
+> **Como usar este documento:**
+> - Cada etapa tem um escopo claro e um critério de "feita"
+> - Marcar checkboxes conforme conclui
+> - Nunca pular para a próxima etapa sem concluir a anterior
+> - Cada etapa deve terminar com `pnpm lint && pnpm typecheck` verde e um commit limpo
+
+---
+
+## Etapa 1 — Base do Projeto
+
+**Objetivo:** Ter o monorepo configurado, os 3 apps rodando e o Firebase plugado.
+
+**Escopo:**
+
+- [ ] Monorepo Turborepo + pnpm (ver `docs/setup-inicial.md` passo a passo)
+- [ ] 3 apps Next.js criados (consumidor, produtor, backoffice)
+- [ ] 6 packages compartilhados criados como esqueleto
+- [ ] Firebase configurado:
+  - [ ] Projeto Firebase criado no console
+  - [ ] Authentication habilitado (Email/Password + Google)
+  - [ ] Firestore criado (modo production)
+  - [ ] Storage habilitado
+  - [ ] Cloud Functions configurado (TypeScript)
+  - [ ] Emuladores rodando localmente
+- [ ] **Layout principal de cada app:**
+  - [ ] Consumidor: header com logo + busca + carrinho, footer simples
+  - [ ] Produtor: sidebar com menu + topbar com perfil
+  - [ ] Backoffice: sidebar admin + topbar
+- [ ] **Autenticação base:**
+  - [ ] Página de login no consumidor (email/senha + Google)
+  - [ ] Página de login no produtor (email/senha apenas)
+  - [ ] Página de login no backoffice (email/senha + 2FA preparado)
+  - [ ] Cloud Function que seta custom claims (`role`)
+  - [ ] Context `AuthProvider` em `shared-services` consumido pelos 3 apps
+  - [ ] Middleware de rota protegida em cada app
+- [ ] **Banco inicial:**
+  - [ ] Collection `users` modelada e com regras
+  - [ ] Tipos `User`, `UserRole` em `shared-types`
+- [ ] Repositório GitHub criado e populado
+- [ ] 3 sites criados na Netlify
+
+**Critério de conclusão:** Eu consigo criar uma conta no consumidor, fazer login, ver meu perfil; e o admin (criado manualmente no console) consegue entrar no backoffice.
+
+---
+
+## Etapa 2 — Restaurantes e Produtos
+
+**Objetivo:** Produtores conseguem se cadastrar, criar restaurante, adicionar produtos. Consumidores conseguem navegar e buscar.
+
+**Escopo:**
+
+### No app produtor:
+
+- [ ] Cadastro de produtor (sign-up com aprovação pendente)
+- [ ] Wizard de criação do restaurante:
+  - [ ] Dados básicos (nome, CNPJ, telefone, descrição)
+  - [ ] Endereço (com integração de geocoding via Google Maps ou similar)
+  - [ ] Logo + banner (upload no Storage)
+  - [ ] Horário de funcionamento (por dia da semana)
+  - [ ] Taxa de entrega (fixa ou por distância)
+  - [ ] Tempo médio de preparo
+- [ ] CRUD de categorias do cardápio (Pratos, Bebidas, Sobremesas, etc.)
+- [ ] CRUD de produtos:
+  - [ ] Nome, descrição, preço (em centavos!)
+  - [ ] Foto (Storage)
+  - [ ] Categoria, disponibilidade
+  - [ ] Adicionais e opções (estrutura preparada, UI básica)
+- [ ] Controle de estoque básico (toggle "esgotado")
+- [ ] Status do restaurante: aberto/fechado manual + automático por horário
+
+### No app consumidor:
+
+- [ ] Home com listagem de restaurantes (cards modernos)
+- [ ] Filtro por categoria de restaurante (Pizza, Hamburguer, Japonês...)
+- [ ] Busca com debounce (nome de restaurante ou prato)
+- [ ] Página de restaurante (`/restaurante/[slug]`) com:
+  - [ ] Banner + logo + info
+  - [ ] Status (aberto/fechado, tempo de entrega, taxa)
+  - [ ] Cardápio agrupado por categoria
+  - [ ] Click em produto abre modal com detalhes + adicionais
+- [ ] Geolocalização (pedir permissão, mostrar só restaurantes na área)
+
+### No backoffice:
+
+- [ ] Lista de restaurantes pendentes de aprovação
+- [ ] Aprovar/rejeitar restaurante (seta custom claim `approved: true`)
+- [ ] Visualizar dados completos do restaurante
+
+### Compartilhado:
+
+- [ ] Tipos: `Restaurant`, `Product`, `Category` em `shared-types`
+- [ ] Services: `restaurantService`, `productService` em `shared-services`
+- [ ] Regras Firestore para `restaurants`, `products`, `categories`
+- [ ] Índices Firestore (por geolocalização, por categoria)
+
+**Critério de conclusão:** Um produtor pode se cadastrar, ser aprovado pelo admin, montar um cardápio completo, e o consumidor consegue ver esse restaurante e seus produtos.
+
+---
+
+## Etapa 3 — Carrinho, Checkout e Pagamento
+
+**Objetivo:** Consumidor consegue finalizar pedido com pagamento real (sandbox do Mercado Pago).
+
+**Escopo:**
+
+### No app consumidor:
+
+- [ ] Context `CartProvider` em `shared-services` (mas instanciado no consumidor)
+- [ ] Adicionar/remover/alterar quantidade de produtos no carrinho
+- [ ] Carrinho persistido em `localStorage` (não-logado) e Firestore (logado)
+- [ ] **Restrição:** carrinho só aceita produtos de **um** restaurante por vez (igual iFood)
+- [ ] Sidebar/modal de carrinho com resumo
+- [ ] Tela de checkout:
+  - [ ] Selecionar endereço de entrega (CRUD de endereços)
+  - [ ] Selecionar forma de pagamento (PIX ou cartão)
+  - [ ] Aplicar cupom de desconto (validação básica)
+  - [ ] Resumo: subtotal + taxa de entrega + desconto = total
+  - [ ] Botão "Finalizar pedido"
+- [ ] Integração Mercado Pago:
+  - [ ] PIX: gera QR code, exibe na tela, polling de status
+  - [ ] Cartão: Brick de pagamento do Mercado Pago (tokenização no client)
+- [ ] Tela de acompanhamento do pedido (real-time via `onSnapshot`):
+  - [ ] Status visual (timeline: confirmado → preparando → saiu → entregue)
+  - [ ] Detalhes do pedido
+  - [ ] Tempo estimado
+
+### Em Cloud Functions:
+
+- [ ] Function `createOrder` (callable):
+  - [ ] Valida carrinho, cupom, endereço
+  - [ ] Calcula totais no server (não confiar no client)
+  - [ ] Cria documento em `orders/` com status `pending`
+  - [ ] Cria preferência de pagamento no Mercado Pago
+  - [ ] Retorna ID do pedido e dados de pagamento
+- [ ] Function `mercadoPagoWebhook` (HTTP):
+  - [ ] Recebe notificação do Mercado Pago
+  - [ ] Valida assinatura (segurança crítica)
+  - [ ] Atualiza status do pedido para `confirmed`
+  - [ ] Dispara notificação para o restaurante (Etapa 4)
+- [ ] Function `onOrderCreated` (Firestore trigger):
+  - [ ] Loga evento, atualiza contadores agregados
+
+### No backoffice (mínimo):
+
+- [ ] Listagem de pedidos com filtros
+- [ ] Detalhes do pedido (visualização)
+
+### Compartilhado:
+
+- [ ] Tipos: `Order`, `OrderItem`, `OrderStatus`, `Payment`, `Address`, `Coupon`
+- [ ] Service: `orderService`, `paymentService`, `addressService`
+- [ ] Util: `calculateOrderTotal`, `formatCurrency` (centavos → "R$ XX,XX")
+- [ ] Regras Firestore para `orders`, `addresses`, `payments`, `coupons`
+- [ ] Índices: pedidos por usuário + status + data
+
+**Critério de conclusão:** Eu, como consumidor, consigo fazer um pedido completo, pagar via PIX no sandbox, e ver o status mudar para "confirmado" automaticamente após o webhook.
+
+---
+
+## Etapa 4 — Gestão de Pedidos (Produtor)
+
+**Objetivo:** O restaurante recebe pedidos em tempo real, gerencia status, vê dashboard.
+
+**Escopo:**
+
+### No app produtor:
+
+- [ ] Tela "Pedidos" como home pós-login:
+  - [ ] 4 colunas tipo Kanban: Pendentes / Em preparo / Prontos / Entregues
+  - [ ] Card de pedido com dados resumidos (cliente, itens, total, tempo)
+  - [ ] Clique abre detalhes completos
+  - [ ] **Listener `onSnapshot`** para atualização ao vivo
+- [ ] **Alerta sonoro** quando chega pedido novo (HTML5 Audio + Web Audio API)
+- [ ] **Push notification** via FCM quando o produtor não está com a aba aberta
+- [ ] Botões de mudança de status:
+  - [ ] Aceitar pedido (pending → confirmed)
+  - [ ] Iniciar preparo (confirmed → preparing)
+  - [ ] Pronto para retirada (preparing → ready)
+  - [ ] Saiu para entrega (ready → on_delivery)
+  - [ ] Recusar pedido (com motivo)
+- [ ] Modal de detalhes do pedido com botão "Imprimir comanda" (impressão térmica via `window.print()` com CSS @media print)
+- [ ] **Dashboard do produtor:**
+  - [ ] Pedidos do dia (quantidade + faturamento)
+  - [ ] Ticket médio
+  - [ ] Produtos mais vendidos
+  - [ ] Gráfico de pedidos por hora
+- [ ] **Histórico de pedidos** com filtros (data, status, cliente)
+- [ ] **Relatórios** exportáveis (CSV — só estrutura, sem features avançadas ainda)
+
+### Em Cloud Functions:
+
+- [ ] Function `onOrderStatusChanged` (Firestore trigger):
+  - [ ] Quando status muda, notifica consumidor (FCM)
+  - [ ] Atualiza timeline do pedido
+  - [ ] Quando vira `on_delivery`, notifica entregadores disponíveis (Etapa 6)
+- [ ] Function `dailyStatsAggregator` (scheduled, roda à meia-noite):
+  - [ ] Agrega vendas do dia anterior por restaurante
+  - [ ] Salva em `restaurants/{id}/stats/{date}`
+
+### Compartilhado:
+
+- [ ] Components em `shared-ui`: `OrderCard`, `StatusBadge`, `OrderTimeline`
+- [ ] Util: `getOrderTimeRemaining`, `getOrderStatusLabel`
+
+**Critério de conclusão:** Quando um cliente finaliza pedido, o produtor recebe alerta sonoro + visual em ~1 segundo. Mudanças de status pelo produtor são vistas pelo cliente em tempo real.
+
+---
+
+## Etapa 5 — Administração (Backoffice)
+
+**Objetivo:** Painel administrativo profissional para gerenciar a plataforma.
+
+**Escopo:**
+
+### No app backoffice:
+
+- [ ] **Dashboard principal:**
+  - [ ] KPIs do dia: pedidos, GMV, novos cadastros, restaurantes ativos
+  - [ ] Gráfico de pedidos últimos 30 dias
+  - [ ] Gráfico de receita (taxa da plataforma) últimos 30 dias
+  - [ ] Top 10 restaurantes por faturamento
+  - [ ] Mapa de calor por região (futuro)
+- [ ] **Gestão de Usuários:**
+  - [ ] Lista paginada com busca, filtros (role, status)
+  - [ ] Detalhes do usuário (pedidos, endereços, gastos)
+  - [ ] Suspender / reativar conta
+- [ ] **Gestão de Restaurantes:**
+  - [ ] Lista com filtros (aprovado, suspenso, categoria)
+  - [ ] Aprovar / suspender restaurante
+  - [ ] Editar taxas comissão por restaurante
+  - [ ] Forçar abertura/fechamento manual
+- [ ] **Gestão de Pedidos:**
+  - [ ] Lista global com filtros pesados
+  - [ ] Intervir em pedido (cancelar, estornar)
+  - [ ] Ver histórico de status de qualquer pedido
+- [ ] **Gestão Financeira:**
+  - [ ] Faturamento por restaurante
+  - [ ] Comissões da plataforma
+  - [ ] Repasses pendentes
+  - [ ] Estornos
+- [ ] **Gestão de Cupons:**
+  - [ ] CRUD de cupons (código, valor, % ou fixo, validade, uso máx, restrições)
+  - [ ] Estatísticas de uso
+- [ ] **Controle de Taxas:**
+  - [ ] Taxa padrão da plataforma (% sobre o pedido)
+  - [ ] Taxa de entrega mínima/máxima
+- [ ] **Relatórios:**
+  - [ ] Receita por período
+  - [ ] Pedidos por categoria
+  - [ ] Exportação CSV/XLSX
+
+### Em Cloud Functions:
+
+- [ ] Function `setUserRole` (callable, restrita a admin):
+  - [ ] Permite admin promover/rebaixar usuários
+- [ ] Function `cancelOrder` (callable, restrita a admin):
+  - [ ] Cancela pedido + estorna pagamento via Mercado Pago API
+
+### Compartilhado:
+
+- [ ] Components em `shared-ui`: `DataTable`, `Chart`, `StatCard`, `DateRangePicker`
+- [ ] Tipos: `AdminStats`, `Commission`, `Payout`
+
+**Critério de conclusão:** O admin consegue ter visão completa da operação, aprovar restaurantes, cancelar pedidos problemáticos, gerar relatórios.
+
+---
+
+## Etapa 6 — Melhorias e App do Entregador
+
+**Objetivo:** Adicionar features que fazem a plataforma "completa" e introduzir o 4º app.
+
+**Escopo:**
+
+### Avaliações:
+
+- [ ] Cliente avalia pedido após "entregue" (1-5 estrelas + comentário)
+- [ ] Avaliação aparece no perfil público do restaurante
+- [ ] Restaurante pode responder avaliação
+- [ ] Admin pode moderar avaliações ofensivas
+
+### Cupons (expansão):
+
+- [ ] Cupons por restaurante (não só globais)
+- [ ] Cupons de primeira compra
+- [ ] Cashback básico
+
+### Notificações Push (FCM em todos os apps):
+
+- [ ] Consumidor: status do pedido, promoções
+- [ ] Produtor: novo pedido (mesmo sem aba aberta)
+- [ ] Entregador: nova entrega disponível
+- [ ] Admin: alertas críticos (pedido cancelado, problema de pagamento)
+
+### App Entregador (novo app `apps/entregador`):
+
+- [ ] Criar app Next.js (PWA agressivo, mobile-first)
+- [ ] Cadastro e aprovação de entregador
+- [ ] Lista de entregas disponíveis (filtrada por distância)
+- [ ] Aceitar/recusar entrega
+- [ ] Mudança de status: a caminho do restaurante → coletei → entregue
+- [ ] GPS em foreground (quando app está aberto — PWA não tem background GPS confiável)
+- [ ] Histórico de entregas
+- [ ] Painel de ganhos (corridas + gorjetas)
+
+### Cloud Functions:
+
+- [ ] `findAvailableDriver` — algoritmo simples (mais próximo + ativo)
+- [ ] `onDeliveryAccepted` — atualiza pedido, notifica cliente
+- [ ] `processPayout` — agrega ganhos por entregador
+
+### Outros:
+
+- [ ] Sistema de favoritos (cliente favorita restaurantes)
+- [ ] Histórico de busca
+- [ ] Recomendações básicas ("você pode gostar")
+
+**Critério de conclusão:** Plataforma com fluxo end-to-end completo: cliente pede → restaurante prepara → entregador retira → cliente recebe → todos avaliam.
+
+---
+
+## Etapa 7+ (Backlog Futuro)
+
+Não fazem parte do MVP mas precisam estar listadas:
+
+- Integração Focus NFe (emissão fiscal real)
+- App entregador nativo (React Native) com GPS em background
+- Multi-restaurante por produtor (rede de lojas)
+- Programa de fidelidade
+- Chat in-app cliente ↔ restaurante / cliente ↔ entregador
+- Pagamento na entrega (dinheiro/máquina)
+- Agendamento de pedidos (pedir para um horário futuro)
+- Internacionalização (mais idiomas)
+- Recomendações com ML
+- A/B testing
+- Observabilidade (Sentry, analytics)
+
+---
+
+## Como o Claude Code deve se comportar entre etapas
+
+1. **Não pular etapas.** Se a Etapa 2 não está completa, não começar Etapa 3.
+2. **Não criar features fora do escopo da etapa atual.** Se aparecer algo que seria útil, anotar como "FUTURO" em comentário ou abrir issue.
+3. **Não deixar débito técnico acumular.** Se um TODO ficou na Etapa 2, listar em "Pendências" no fim da Etapa 2 antes de seguir.
+4. **Atualizar `CLAUDE.md` → Status Atual** ao concluir cada etapa.
+5. **Tag de versão no Git ao concluir etapa:** `git tag etapa-1`, `etapa-2`, etc.

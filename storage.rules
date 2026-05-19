@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function sizeUnder(mb) {
+      return request.resource.size < mb * 1024 * 1024;
+    }
+
+    match /users/{uid}/avatar/{file} {
+      allow read: if true;
+      allow write: if request.auth.uid == uid && isImage() && sizeUnder(5);
+    }
+
+    match /restaurants/{restaurantId}/{type}/{file} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
+                   && isImage()
+                   && sizeUnder(10);
+    }
+
+    match /restaurants/{restaurantId}/products/{productId}/{file} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
+                   && isImage()
+                   && sizeUnder(5);
+    }
+
+    match /documents/{uid}/{file} {
+      allow read: if request.auth.uid == uid || isAdmin();
+      allow write: if request.auth.uid == uid && sizeUnder(20);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
