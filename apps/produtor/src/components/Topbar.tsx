@@ -21,7 +21,7 @@ export default function Topbar() {
     if (!produtor || toggling) return
     setToggling(true)
     try {
-      await toggleProdutorOpen(produtor.id, produtor.isOpen)
+      await toggleProdutorOpen(produtor.id, !produtor.isOpen)
     } finally {
       setToggling(false)
     }
