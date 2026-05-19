@@ -158,12 +158,12 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 1 — Base do Projeto** (em andamento)
+**Etapa 2 — Restaurantes e Produtos** (em andamento)
 
 ### Etapa 0 ✅
 - [x] Documentação inicial criada
 
-### Etapa 1 — progresso
+### Etapa 1 ✅ — Base do Projeto (concluída)
 - [x] Monorepo inicializado (Turborepo + pnpm workspaces)
 - [x] Apps Next.js 16 criados (consumidor:3000, produtor:3001, backoffice:3002)
 - [x] Packages compartilhados criados (shared-types, shared-firebase, shared-ui, shared-services, shared-utils, shared-config)
@@ -181,10 +181,22 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] Layout produtor: Sidebar verde + Topbar — route groups (auth)/(dashboard)
 - [x] Layout backoffice: Sidebar escuro + Topbar — route groups (auth)/(dashboard)
 - [x] Páginas aguardando-aprovacao e acesso-negado no produtor
-- [x] pnpm lint && pnpm typecheck verdes (3 commits)
-- [ ] Habilitar Auth/Firestore/Storage no console Firebase
-- [ ] Repositório GitHub criado e push
-- [ ] Netlify conectado (3 sites)
+- [x] pnpm lint && pnpm typecheck verdes
+- [x] Auth/Firestore/Storage/Cloud Functions habilitados no console Firebase
+- [x] Repositório GitHub criado e push (https://github.com/Dnotcwb/marketplace-delivery)
+- [x] Netlify conectado — 3 sites com build funcionando (tag: etapa-1)
+
+### Etapa 2 — progresso
+- [ ] Tipos: Restaurant, Product, Category, RestaurantHours em shared-types
+- [ ] Services: restaurantService, productService em shared-services
+- [ ] Regras Firestore para restaurants, products, categories
+- [ ] App produtor: wizard de criação de restaurante
+- [ ] App produtor: CRUD de categorias e produtos
+- [ ] App produtor: status aberto/fechado
+- [ ] App consumidor: home com listagem de restaurantes
+- [ ] App consumidor: busca + filtros por categoria
+- [ ] App consumidor: página /restaurante/[slug] com cardápio
+- [ ] App backoffice: aprovação de restaurantes
 
 ### Stack efetiva (atualizada)
 - Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
