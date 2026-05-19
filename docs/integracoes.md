@@ -1,4 +1,4 @@
-# Integrações
+﻿# Integrações
 
 Como configurar e usar as integrações externas.
 
@@ -242,7 +242,7 @@ A integração real é da Etapa 7+. Por enquanto, apenas **preparar a estrutura 
 
 ### O que preparar agora
 
-- Campos fiscais em `restaurants.fiscal` (já modelado em `docs/database.md`)
+- Campos fiscais em `produtores.fiscal` (já modelado em `docs/database.md`)
 - Campos fiscais em `orders.invoice`
 - Variáveis de ambiente reservadas:
   ```bash
@@ -256,7 +256,7 @@ A integração real é da Etapa 7+. Por enquanto, apenas **preparar a estrutura 
 1. Pedido vira `delivered`
 2. Cloud Function `issueInvoice` dispara
 3. Monta payload conforme spec da Focus NFe:
-   - Dados do restaurante (emitente)
+   - dados do produtor (emitente)
    - Dados do cliente (destinatário)
    - Itens com NCM e CFOP
    - Total, impostos
@@ -267,7 +267,7 @@ A integração real é da Etapa 7+. Por enquanto, apenas **preparar a estrutura 
 ### Decisões a tomar quando chegar a hora
 
 - NFC-e (consumidor final) ou NF-e (B2B)? → **NFC-e** para delivery
-- Emissão por restaurante (cada um com seu CNPJ) ou pela plataforma? → **Por restaurante** (cada um emite a sua)
+- Emissão Por produtor (cada produtor com seu CNPJ) ou pela plataforma? → **Por produtor** (cada um emite a sua)
 - Quem paga a Focus? → Plataforma cobre o custo na comissão
 
 ---
@@ -408,3 +408,4 @@ export const myFunction = onCall(
   }
 )
 ```
+

@@ -1,4 +1,4 @@
-# App Consumidor
+﻿# App Consumidor
 
 Aplicação destinada ao **cliente final** que faz pedidos.
 
@@ -6,13 +6,13 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 
 - **Mobile-first absoluto.** ~80% dos usuários abrirão no celular.
 - **Bundle enxuto.** Cada KB conta — usuário pode estar em 4G ruim.
-- **SEO importante.** Páginas de restaurantes precisam ser indexáveis pelo Google.
+- **SEO importante.** páginas de produtores precisam ser indexáveis pelo Google.
 - **PWA.** Instalável na home screen, funciona offline para navegação básica.
 - **Tempo de carregamento < 2s** no 4G (meta).
 
 ## Stack específica deste app
 
-- Next.js 15 App Router com **SSG/ISR** onde possível (páginas de restaurante, categorias)
+- Next.js 15 App Router com **SSG/ISR** onde possível (páginas de produtor, categorias)
 - `next/image` com lazy loading agressivo
 - `next-pwa` configurado
 - `next-intl` (preparado para i18n futura, mesmo só PT-BR agora)
@@ -25,14 +25,14 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 
 1. Usuário acessa o site
 2. Pede permissão de geolocalização (com fallback de digitar CEP)
-3. Mostra restaurantes próximos ordenados por distância
+3. Mostra produtores próximos ordenados por distância
 4. Usuário navega sem precisar logar
 
 **Decisão:** **navegação sem login é obrigatória.** Só pedir login no momento do checkout.
 
 ### Fluxo 2: Pedido completo
 
-1. Usuário escolhe restaurante na home
+1. Usuário escolhe produtor na home
 2. Navega no cardápio (Server Component, SSG)
 3. Clica em produto → modal com adicionais (Client Component)
 4. Adiciona ao carrinho (persiste em localStorage se não logado)
@@ -54,7 +54,7 @@ Aplicação destinada ao **cliente final** que faz pedidos.
   - ⚫ Em preparo ✅
   - ⚪ Saiu para entrega
   - ⚪ Entregue
-- Tempo estimado (atualizado pelo restaurante)
+- Tempo estimado (atualizado pelo produtor)
 - Botão "Cancelar pedido" (só disponível enquanto está `pending`)
 - Dados do entregador (quando atribuído — Etapa 6)
 - Avaliar após `delivered` (Etapa 6)
@@ -62,12 +62,12 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 ## Telas / Rotas
 
 ```
-/                              Home — lista de restaurantes próximos
-/restaurante/[slug]            Cardápio do restaurante (SSG/ISR)
-/restaurante/[slug]/[productId] Modal de produto (intercepting route)
+/                              Home — lista de produtores próximos
+/produtor/[slug]            Catálogo do produtor (SSG/ISR)
+/produtor/[slug]/[productId] Modal de produto (intercepting route)
 /busca                         Resultados de busca
 /categorias                    Listagem por categoria
-/categoria/[slug]              Restaurantes de uma categoria
+/categoria/[slug]              Produtores de uma categoria
 
 /login                         Login (email/senha + Google)
 /cadastro                      Cadastro (apenas cliente)
@@ -85,12 +85,12 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 /perfil/enderecos              CRUD de endereços
 /perfil/pagamentos             Métodos salvos (futuro)
 
-/favoritos                     Restaurantes favoritados (Etapa 6)
+/favoritos                     Produtores favoritados (Etapa 6)
 ```
 
 ## Componentes-chave (que ficam neste app, não em shared-ui)
 
-- `RestaurantList` — lista responsiva de restaurantes com filtros
+- `ProdutorList` — lista responsiva de produtores com filtros
 - `ProductCard` — card de produto no cardápio
 - `ProductModal` — modal com detalhes + adicionais
 - `CartDrawer` — drawer lateral do carrinho
@@ -123,9 +123,9 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 
 ## SEO
 
-- Cada restaurante tem URL única (`/restaurante/[slug]`)
+- Cada produtor tem URL única (`/produtor/[slug]`)
 - Meta tags dinâmicas (`generateMetadata` do App Router)
-- Schema.org `Restaurant`, `Menu`, `MenuItem` (JSON-LD)
+- Schema.org `Produtor`, `Menu`, `MenuItem` (JSON-LD)
 - Sitemap dinâmico via `app/sitemap.ts`
 - `robots.txt` permitindo crawling apenas das rotas públicas
 
@@ -136,3 +136,5 @@ Aplicação destinada ao **cliente final** que faz pedidos.
 - Contraste WCAG AA
 - Alt em todas as imagens
 - ARIA labels onde necessário
+
+

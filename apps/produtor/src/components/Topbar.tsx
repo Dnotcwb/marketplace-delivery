@@ -18,7 +18,7 @@ export default function Topbar() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-neutral-200 bg-white px-6">
-      {/* Status do restaurante — configurado na Etapa 2 */}
+      {/* Status do produtor — toggle aberto/fechado */}
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500">
           <span className="h-2 w-2 rounded-full bg-neutral-300" aria-hidden="true" />

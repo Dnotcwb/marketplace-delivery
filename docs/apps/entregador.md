@@ -1,8 +1,8 @@
-# App Entregador
+﻿# App Entregador
 
 > ⚠️ **Este app é parte da Etapa 6.** Não construir antes de concluir Etapas 1-5.
 
-Aplicação destinada aos **entregadores** (motoboys / ciclistas) que retiram pedidos no restaurante e entregam ao cliente.
+Aplicação destinada aos **entregadores** (motoboys / ciclistas) que retiram pedidos no produtor e entregam ao cliente.
 
 ## Características-chave
 
@@ -49,13 +49,13 @@ Por essas limitações, **a Etapa 7+ inclui versão React Native**. Para o MVP (
 3. Geolocation começa a reportar posição a cada 30s para Firestore
 4. Quando há pedido `on_delivery` próximo:
    - Push notification + alerta sonoro + vibração
-   - Tela mostra: restaurante, distância, valor da corrida
+   - Tela mostra: produtor, distância, valor da corrida
    - Botões: "Aceitar" (15s para responder) / "Recusar"
 5. **Aceitou:**
    - Pedido vira `assigned_to_driver`, com `driverId` setado
-   - Mapa com rota até o restaurante
+   - Mapa com rota até o produtor
    - Status do entregador: `going_to_pickup`
-6. Chegou no restaurante → botão "Cheguei no restaurante"
+6. Chegou ao produtor/horta → botão "Cheguei no produtor/horta"
 7. Coletou → botão "Coletei o pedido" → status `picked_up`
 8. Mapa com rota até o cliente
 9. Status do entregador: `delivering`
@@ -96,16 +96,16 @@ A tela principal tem dois estados:
 
 **Estado A: Aguardando entrega**
 - Toggle "Disponível" no topo
-- Mapa mostrando localização atual + restaurantes próximos com pedidos prontos
+- Mapa mostrando localização atual + produtores próximos com pedidos prontos
 - Card flutuante de estatísticas do dia (corridas, ganhos)
 
 **Estado B: Em entrega**
 - Mapa em tela cheia com rota
 - Card inferior com:
-  - Próxima ação ("Buscar no restaurante" / "Entregar ao cliente")
+  - Próxima ação ("Buscar no produtor" / "Entregar ao cliente")
   - Endereço de destino
   - Botão grande de ação ("Cheguei")
-- Telefone do cliente / restaurante (1-tap to call)
+- Telefone do produtor (1-tap to call)
 - Chat (futuro)
 
 ## Algoritmo de matching (Cloud Function)
@@ -115,11 +115,11 @@ Quando um pedido vira `on_delivery`, dispara `findAvailableDriver`:
 ```typescript
 async function findAvailableDriver(orderId: string) {
   const order = await getOrder(orderId)
-  const restaurant = await getRestaurant(order.restaurantId)
+  const produtor = await getProdutor(order.produtorId)
 
-  // Busca entregadores disponíveis num raio de 5km do restaurante
+  // Busca entregadores disponíveis num raio de 5km do produtor
   const drivers = await getAvailableDriversNear(
-    restaurant.location,
+    produtor.location,
     radiusKm: 5
   )
 
@@ -185,3 +185,6 @@ Configurar canais distintos no FCM:
 - `delivery_offer` — alta prioridade, som de alerta + vibração + persistente
 - `delivery_update` — média prioridade, som suave
 - `general` — baixa prioridade
+
+
+

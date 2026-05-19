@@ -20,6 +20,7 @@ build
 
 # Firebase
 .firebase
+functions/lib
 *-debug.log
 firebase-debug.log
 firestore-debug.log

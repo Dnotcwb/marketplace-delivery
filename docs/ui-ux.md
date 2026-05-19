@@ -1,4 +1,4 @@
-# UI & UX — Design System Compartilhado
+﻿# UI & UX — Design System Compartilhado
 
 Princípios de design, design tokens e padrões visuais válidos para os 4 apps.
 
@@ -221,7 +221,7 @@ Em `packages/shared-ui/src/components/`. Todos são funcionais, com TypeScript e
 
 - **`PriceTag`** — formata valor em centavos para "R$ XX,XX"
 - **`OrderStatusBadge`** — badge específico para status de pedido
-- **`RestaurantCard`** — card de restaurante (usado no consumidor)
+- **`ProdutorCard`** — card de produtor (usado no consumidor)
 - **`ProductCard`** — card de produto
 - **`OrderCard`** — card de pedido (usado no produtor e admin)
 - **`OrderTimeline`** — linha do tempo do pedido (usado no consumidor)
@@ -306,7 +306,7 @@ Decisão: o overhead de manter ambos os modos não justifica no MVP. Quando impl
 - Meta tags dinâmicas via `generateMetadata` do App Router
 - Open Graph completo (`og:title`, `og:image`, `og:description`)
 - Twitter Cards
-- Schema.org JSON-LD para `Restaurant`, `Menu`, `MenuItem`
+- Schema.org JSON-LD para `Produtor`, `Menu`, `MenuItem`
 - Sitemap automático em `app/sitemap.ts`
 - `robots.txt` permitindo só rotas públicas
 
@@ -380,3 +380,5 @@ Antes de mergear:
 - [ ] Contraste WCAG AA?
 - [ ] Imagens otimizadas (`next/image`)?
 - [ ] Meta tags (se for pública e indexável)?
+
+

@@ -1,4 +1,4 @@
-# Segurança
+﻿# Segurança
 
 Tudo que envolve **autenticação, autorização, regras Firestore e proteção de rotas**.
 
@@ -17,7 +17,7 @@ Quando um usuário faz login, o Firebase Auth gera um JWT que pode conter claims
 ```typescript
 {
   role: 'cliente' | 'produtor' | 'admin' | 'entregador',
-  restaurantIds?: string[],    // só produtor
+  produtorIds?: string[],    // só produtor
   approved?: boolean,          // produtor e entregador
 }
 ```
@@ -32,11 +32,11 @@ export const setUserRole = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Apenas admin')
   }
 
-  const { uid, role, restaurantIds, approved } = request.data
+  const { uid, role, produtorIds, approved } = request.data
 
   await admin.auth().setCustomUserClaims(uid, {
     role,
-    restaurantIds,
+    produtorIds,
     approved,
   })
 
@@ -102,9 +102,9 @@ service cloud.firestore {
       return isDriver() && request.auth.token.approved == true;
     }
 
-    function isOwnerOfRestaurant(restaurantId) {
+    function isOwnerOfProdutor(produtorId) {
       return isProducer() &&
-             restaurantId in request.auth.token.restaurantIds;
+             produtorId in request.auth.token.produtorIds;
     }
 
     function hasOnlyAllowedFields(allowedFields) {
@@ -155,10 +155,10 @@ service cloud.firestore {
     }
 
     // ==================== RESTAURANTS ====================
-    match /restaurants/{restaurantId} {
+    match /produtores/{produtorId} {
       // Ler: qualquer um aprovado
       allow read: if resource.data.status == 'approved'
-                  || isOwnerOfRestaurant(restaurantId)
+                  || isOwnerOfProdutor(produtorId)
                   || isAdmin();
 
       // Criar: produtor autenticado (mesmo não aprovado pode criar; vira pending)
@@ -167,9 +167,9 @@ service cloud.firestore {
                     && request.resource.data.status == 'pending';
 
       // Atualizar:
-      // - dono do restaurante: campos operacionais
+      // - dono do produtor: campos operacionais
       // - admin: tudo
-      allow update: if (isOwnerOfRestaurant(restaurantId)
+      allow update: if (isOwnerOfProdutor(produtorId)
                        && isUnchanged('status')
                        && isUnchanged('commission')
                        && isUnchanged('approvedAt')
@@ -182,16 +182,16 @@ service cloud.firestore {
       // Subcollections
       match /categories/{categoryId} {
         allow read: if true;
-        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow write: if isOwnerOfProdutor(produtorId) || isAdmin();
       }
 
       match /products/{productId} {
         allow read: if true;
-        allow write: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow write: if isOwnerOfProdutor(produtorId) || isAdmin();
       }
 
       match /stats/{date} {
-        allow read: if isOwnerOfRestaurant(restaurantId) || isAdmin();
+        allow read: if isOwnerOfProdutor(produtorId) || isAdmin();
         allow write: if false; // só Cloud Functions
       }
     }
@@ -200,11 +200,11 @@ service cloud.firestore {
     match /orders/{orderId} {
       // Ler:
       // - cliente: seus pedidos
-      // - produtor: pedidos do seu restaurante
+      // - produtor: pedidos do seu produtor
       // - entregador: pedidos atribuídos a ele
       // - admin: todos
       allow read: if (isCustomer() && resource.data.customerId == userId())
-                  || (isProducer() && isOwnerOfRestaurant(resource.data.restaurantId))
+                  || (isProducer() && isOwnerOfProdutor(resource.data.produtorId))
                   || (isDriver() && resource.data.deliveryDriverId == userId())
                   || isAdmin();
 
@@ -219,7 +219,7 @@ service cloud.firestore {
       // - cliente: pode cancelar se status == 'pending'
       allow update: if isAdmin()
                     || (isProducer()
-                        && isOwnerOfRestaurant(resource.data.restaurantId)
+                        && isOwnerOfProdutor(resource.data.produtorId)
                         && hasOnlyAllowedFields(['status', 'statusHistory',
                                                   'confirmedAt', 'preparingAt',
                                                   'readyAt', 'onDeliveryAt']))
@@ -324,20 +324,20 @@ service firebase.storage {
       allow write: if request.auth.uid == uid && isImage() && sizeUnder(5);
     }
 
-    // Logos e banners de restaurante
-    match /restaurants/{restaurantId}/{type}/{file} {
+    // Logos e banners de produtor
+    match /produtores/{produtorId}/{type}/{file} {
       allow read: if true;
       allow write: if isAuthenticated()
-                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
+                   && (produtorId in request.auth.token.produtorIds || isAdmin())
                    && isImage()
                    && sizeUnder(10);
     }
 
     // Produtos
-    match /restaurants/{restaurantId}/products/{productId}/{file} {
+    match /produtores/{produtorId}/products/{productId}/{file} {
       allow read: if true;
       allow write: if isAuthenticated()
-                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
+                   && (produtorId in request.auth.token.produtorIds || isAdmin())
                    && isImage()
                    && sizeUnder(5);
     }
@@ -488,3 +488,5 @@ Antes de mergear feature nova, verificar:
 - [ ] Auditoria registrada para ações admin?
 - [ ] Rate limiting onde necessário?
 - [ ] Testes com usuário não autorizado falhando?
+
+

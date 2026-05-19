@@ -11,7 +11,7 @@ Cada público tem necessidades opostas, então cada um tem seu próprio app:
 | App | Público | Característica principal | Status |
 |-----|---------|--------------------------|--------|
 | **consumidor** | Cliente final | Mobile-first, leve, SEO pesado, PWA | Etapas 1-3, 6 |
-| **produtor** | Restaurante / lojista | PWA, áudio de alerta, impressão de comanda, sempre aberto | Etapas 2, 4 |
+| **produtor** | Produtor de horta / agricultor | PWA, áudio de alerta, impressão de comanda, sempre aberto | Etapas 2, 4 |
 | **backoffice** | Administradores da plataforma | Desktop-first, denso em dados, dashboards | Etapa 5 |
 | **entregador** | Motoboy / entregador | PWA com GPS (React Native no futuro) | Etapa 6 |
 
@@ -33,11 +33,11 @@ Cada público tem necessidades opostas, então cada um tem seu próprio app:
 marketplace-delivery/
 ├── apps/
 │   ├── consumidor/          # Next.js — cliente final
-│   ├── produtor/            # Next.js — restaurantes
+│   ├── produtor/            # Next.js — produtores/hortas
 │   ├── backoffice/          # Next.js — admin da plataforma
 │   └── entregador/          # Next.js (PWA) — motoboys (Etapa 6)
 ├── packages/
-│   ├── shared-types/        # interfaces TS (Pedido, Restaurante, Produto, etc.)
+│   ├── shared-types/        # interfaces TS (Pedido, Produtor, Produto, etc.)
 │   ├── shared-firebase/     # config Firebase Web SDK + helpers
 │   ├── shared-ui/           # design system (Button, Card, Input, Modal)
 │   ├── shared-services/     # CRUD do Firestore, lógica de negócio
@@ -158,7 +158,7 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 2 — Restaurantes e Produtos** (em andamento)
+**Etapa 2 — Produtores e Produtos** (em andamento)
 
 ### Etapa 0 ✅
 - [x] Documentação inicial criada
@@ -187,16 +187,16 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] Netlify conectado — 3 sites com build funcionando (tag: etapa-1)
 
 ### Etapa 2 — progresso
-- [ ] Tipos: Restaurant, Product, Category, RestaurantHours em shared-types
-- [ ] Services: restaurantService, productService em shared-services
-- [ ] Regras Firestore para restaurants, products, categories
-- [ ] App produtor: wizard de criação de restaurante
+- [x] Tipos: Produtor, Product, Category em shared-types
+- [x] Services: produtorService, productService em shared-services
+- [x] Regras Firestore para produtores, products, categories
+- [ ] App produtor: wizard de criação do perfil de horta
 - [ ] App produtor: CRUD de categorias e produtos
 - [ ] App produtor: status aberto/fechado
-- [ ] App consumidor: home com listagem de restaurantes
+- [ ] App consumidor: home com listagem de produtores
 - [ ] App consumidor: busca + filtros por categoria
-- [ ] App consumidor: página /restaurante/[slug] com cardápio
-- [ ] App backoffice: aprovação de restaurantes
+- [ ] App consumidor: página /produtor/[slug] com catálogo
+- [ ] App backoffice: aprovação de produtores
 
 ### Stack efetiva (atualizada)
 - Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
@@ -222,7 +222,7 @@ Antes de mexer em qualquer área, leia o documento correspondente:
 ### Por app
 
 - **[docs/apps/consumidor.md](docs/apps/consumidor.md)** — Funcionalidades, fluxos, telas do app do cliente.
-- **[docs/apps/produtor.md](docs/apps/produtor.md)** — Funcionalidades, fluxos, telas do app do restaurante.
+- **[docs/apps/produtor.md](docs/apps/produtor.md)** — Funcionalidades, fluxos, telas do app do produtor.
 - **[docs/apps/backoffice.md](docs/apps/backoffice.md)** — Funcionalidades, fluxos, telas do admin.
 - **[docs/apps/entregador.md](docs/apps/entregador.md)** — Funcionalidades, fluxos, telas do entregador (Etapa 6).
 

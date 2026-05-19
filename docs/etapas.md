@@ -1,4 +1,4 @@
-# Roadmap de Etapas
+﻿# Roadmap de Etapas
 
 Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de conclusão. Sempre consulte antes de começar uma sessão para saber em que ponto o projeto está.
 
@@ -116,7 +116,7 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 - [ ] Context `CartProvider` em `shared-services` (mas instanciado no consumidor)
 - [ ] Adicionar/remover/alterar quantidade de produtos no carrinho
 - [ ] Carrinho persistido em `localStorage` (não-logado) e Firestore (logado)
-- [ ] **Restrição:** carrinho só aceita produtos de **um** restaurante por vez (igual iFood)
+- [ ] **Restrição:** carrinho só aceita produtos de **um** produtor por vez (igual iFood)
 - [ ] Sidebar/modal de carrinho com resumo
 - [ ] Tela de checkout:
   - [ ] Selecionar endereço de entrega (CRUD de endereços)
@@ -144,7 +144,7 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
   - [ ] Recebe notificação do Mercado Pago
   - [ ] Valida assinatura (segurança crítica)
   - [ ] Atualiza status do pedido para `confirmed`
-  - [ ] Dispara notificação para o restaurante (Etapa 4)
+  - [ ] Dispara notificação para o produtor (Etapa 4)
 - [ ] Function `onOrderCreated` (Firestore trigger):
   - [ ] Loga evento, atualiza contadores agregados
 
@@ -167,7 +167,7 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 
 ## Etapa 4 — Gestão de Pedidos (Produtor)
 
-**Objetivo:** O restaurante recebe pedidos em tempo real, gerencia status, vê dashboard.
+**Objetivo:** O produtor recebe pedidos em tempo real, gerencia status, vê dashboard.
 
 **Escopo:**
 
@@ -202,8 +202,8 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
   - [ ] Atualiza timeline do pedido
   - [ ] Quando vira `on_delivery`, notifica entregadores disponíveis (Etapa 6)
 - [ ] Function `dailyStatsAggregator` (scheduled, roda à meia-noite):
-  - [ ] Agrega vendas do dia anterior por restaurante
-  - [ ] Salva em `restaurants/{id}/stats/{date}`
+  - [ ] Agrega vendas do dia anterior por produtor
+  - [ ] Salva em `produtores/{id}/stats/{date}`
 
 ### Compartilhado:
 
@@ -223,26 +223,26 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 ### No app backoffice:
 
 - [ ] **Dashboard principal:**
-  - [ ] KPIs do dia: pedidos, GMV, novos cadastros, restaurantes ativos
+  - [ ] KPIs do dia: pedidos, GMV, novos cadastros, produtores ativos
   - [ ] Gráfico de pedidos últimos 30 dias
   - [ ] Gráfico de receita (taxa da plataforma) últimos 30 dias
-  - [ ] Top 10 restaurantes por faturamento
+  - [ ] Top 10 produtores por faturamento
   - [ ] Mapa de calor por região (futuro)
 - [ ] **Gestão de Usuários:**
   - [ ] Lista paginada com busca, filtros (role, status)
   - [ ] Detalhes do usuário (pedidos, endereços, gastos)
   - [ ] Suspender / reativar conta
-- [ ] **Gestão de Restaurantes:**
+- [ ] **Gestão de Produtores:**
   - [ ] Lista com filtros (aprovado, suspenso, categoria)
-  - [ ] Aprovar / suspender restaurante
-  - [ ] Editar taxas comissão por restaurante
+  - [ ] Aprovar / suspender produtor
+  - [ ] Editar taxas de comissão por produtor
   - [ ] Forçar abertura/fechamento manual
 - [ ] **Gestão de Pedidos:**
   - [ ] Lista global com filtros pesados
   - [ ] Intervir em pedido (cancelar, estornar)
   - [ ] Ver histórico de status de qualquer pedido
 - [ ] **Gestão Financeira:**
-  - [ ] Faturamento por restaurante
+  - [ ] Faturamento por produtor
   - [ ] Comissões da plataforma
   - [ ] Repasses pendentes
   - [ ] Estornos
@@ -269,7 +269,7 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 - [ ] Components em `shared-ui`: `DataTable`, `Chart`, `StatCard`, `DateRangePicker`
 - [ ] Tipos: `AdminStats`, `Commission`, `Payout`
 
-**Critério de conclusão:** O admin consegue ter visão completa da operação, aprovar restaurantes, cancelar pedidos problemáticos, gerar relatórios.
+**Critério de conclusão:** O admin consegue ter visão completa da operação, aprovar produtores, cancelar pedidos problemáticos, gerar relatórios.
 
 ---
 
@@ -282,13 +282,13 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 ### Avaliações:
 
 - [ ] Cliente avalia pedido após "entregue" (1-5 estrelas + comentário)
-- [ ] Avaliação aparece no perfil público do restaurante
-- [ ] Restaurante pode responder avaliação
+- [ ] Avaliação aparece no perfil público do produtor
+- [ ] Produtor pode responder avaliação
 - [ ] Admin pode moderar avaliações ofensivas
 
 ### Cupons (expansão):
 
-- [ ] Cupons por restaurante (não só globais)
+- [ ] Cupons por produtor (não só globais)
 - [ ] Cupons de primeira compra
 - [ ] Cashback básico
 
@@ -305,7 +305,7 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 - [ ] Cadastro e aprovação de entregador
 - [ ] Lista de entregas disponíveis (filtrada por distância)
 - [ ] Aceitar/recusar entrega
-- [ ] Mudança de status: a caminho do restaurante → coletei → entregue
+- [ ] Mudança de status: a caminho do produtor → coletei → entregue
 - [ ] GPS em foreground (quando app está aberto — PWA não tem background GPS confiável)
 - [ ] Histórico de entregas
 - [ ] Painel de ganhos (corridas + gorjetas)
@@ -318,11 +318,11 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 
 ### Outros:
 
-- [ ] Sistema de favoritos (cliente favorita restaurantes)
+- [ ] Sistema de favoritos (cliente favorita produtores)
 - [ ] Histórico de busca
 - [ ] Recomendações básicas ("você pode gostar")
 
-**Critério de conclusão:** Plataforma com fluxo end-to-end completo: cliente pede → restaurante prepara → entregador retira → cliente recebe → todos avaliam.
+**Critério de conclusão:** Plataforma com fluxo end-to-end completo: cliente pede → produtor prepara → entregador retira → cliente recebe → todos avaliam.
 
 ---
 
@@ -332,9 +332,9 @@ Não fazem parte do MVP mas precisam estar listadas:
 
 - Integração Focus NFe (emissão fiscal real)
 - App entregador nativo (React Native) com GPS em background
-- Multi-restaurante por produtor (rede de lojas)
+- Multi-horta por produtor (rede de lojas)
 - Programa de fidelidade
-- Chat in-app cliente ↔ restaurante / cliente ↔ entregador
+- Chat in-app cliente ↔ produtor / cliente ↔ entregador
 - Pagamento na entrega (dinheiro/máquina)
 - Agendamento de pedidos (pedir para um horário futuro)
 - Internacionalização (mais idiomas)
@@ -351,3 +351,4 @@ Não fazem parte do MVP mas precisam estar listadas:
 3. **Não deixar débito técnico acumular.** Se um TODO ficou na Etapa 2, listar em "Pendências" no fim da Etapa 2 antes de seguir.
 4. **Atualizar `CLAUDE.md` → Status Atual** ao concluir cada etapa.
 5. **Tag de versão no Git ao concluir etapa:** `git tag etapa-1`, `etapa-2`, etc.
+

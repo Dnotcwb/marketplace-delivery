@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Painel do Restaurante — Ambiente Livre',
+    default: 'Painel do Produtor — Ambiente Livre',
     template: '%s | Ambiente Livre Produtor',
   },
   description: 'Gerencie sua horta, produtos e pedidos em tempo real.',

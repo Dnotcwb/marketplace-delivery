@@ -1,4 +1,4 @@
-# Arquitetura
+﻿# Arquitetura
 
 Este documento explica as **decisões arquiteturais** do projeto. Antes de propor mudanças estruturais, leia este documento.
 
@@ -104,9 +104,9 @@ Decisão: **Next.js em todos**, com SSR opcional por app.
 Os 4 apps são **completamente independentes em deploy** mas **fortemente acoplados em dados**. A sincronização acontece via Firestore:
 
 1. **Cliente faz pedido** no app `consumidor` → grava em `orders/`
-2. **Cloud Function trigger** `onCreate` em `orders/` → envia push para o restaurante
-3. **App `produtor`** está com `onSnapshot` ativo em `orders/` filtrado por `restaurantId` → recebe o pedido em ~100ms, toca som de alerta
-4. Restaurante muda status → atualiza documento → cliente vê mudança em tempo real no `consumidor`
+2. **Cloud Function trigger** `onCreate` em `orders/` → envia push para o produtor
+3. **App `produtor`** está com `onSnapshot` ativo em `orders/` filtrado por `produtorId` → recebe o pedido em ~100ms, toca som de alerta
+4. Produtor muda status → atualiza documento → cliente vê mudança em tempo real no `consumidor`
 5. Status "saiu para entrega" → trigger notifica entregadores próximos
 6. Backoffice tem dashboard com agregações atualizadas via outra Cloud Function
 
@@ -120,7 +120,7 @@ O Firebase Auth permite anexar dados arbitrários ao token JWT do usuário (cust
 // Setado via Cloud Function (admin SDK), nunca no client
 {
   role: 'cliente' | 'produtor' | 'admin' | 'entregador',
-  restaurantId?: string,  // só para produtor (qual restaurante ele gerencia)
+  produtorId?: string,  // só para produtor (qual horta ele gerencia)
   approved: boolean       // produtores e entregadores precisam ser aprovados pelo admin
 }
 ```
@@ -184,9 +184,11 @@ Listo aqui antecipadamente para serem considerados nas decisões:
 
 1. **Notificações push:** Firebase Cloud Messaging (FCM) é o caminho. Cada app registra seu próprio token.
 2. **Geolocalização e cálculo de distância:** GeoFirestore ou Cloud Functions com cálculo de haversine.
-3. **Multi-restaurante por produtor:** o campo `restaurantId` na claim pode virar `restaurantIds: string[]` se um operador gerencia várias lojas.
+3. **Multi-horta por produtor:** o campo `produtorId` na claim pode virar `produtorIds: string[]` se um operador gerencia várias lojas.
 4. **Internacionalização:** mesmo só PT-BR agora, usar `next-intl` desde o início economiza dor depois.
 5. **Observabilidade:** Sentry para erros, Plausible/Umami para analytics privacy-first.
 6. **Filas:** se webhooks do Mercado Pago começarem a falhar, Cloud Tasks para retry.
 
 Quando for a hora de cada um, atualize a etapa correspondente em `docs/etapas.md`.
+
+

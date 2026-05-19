@@ -1,0 +1,225 @@
+'use client'
+
+import { firestore, storage } from '@marketplace/shared-firebase'
+import { createProdutor, useAuth } from '@marketplace/shared-services'
+import type {
+  ProdutorAddress,
+  ProdutorCertification,
+  ProdutorHours,
+} from '@marketplace/shared-types'
+import { slugify } from '@marketplace/shared-utils'
+import { collection, doc } from 'firebase/firestore'
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Step1Basicos from './_steps/Step1Basicos'
+import Step2Endereco from './_steps/Step2Endereco'
+import Step3Horarios from './_steps/Step3Horarios'
+import Step4Operacao from './_steps/Step4Operacao'
+import Step5Fotos from './_steps/Step5Fotos'
+
+const STEPS = ['Dados básicos', 'Endereço', 'Horários', 'Operação', 'Fotos']
+
+export type Step1Data = {
+  name: string
+  document: string
+  phone: string
+  description: string
+}
+
+export type Step2Data = {
+  address: ProdutorAddress
+}
+
+export type Step3Data = {
+  openingHours: ProdutorHours[]
+}
+
+export type Step4Data = {
+  deliveryFeeInCents: number
+  minOrderValueInCents: number
+  estimatedDeliveryTimeMin: number
+  estimatedDeliveryTimeMax: number
+  certifications: ProdutorCertification[]
+}
+
+export type Step5Data = {
+  logoFile?: File
+  bannerFile?: File
+}
+
+async function uploadFile(file: File, path: string): Promise<string> {
+  const storageRef = ref(storage, path)
+  const task = uploadBytesResumable(storageRef, file)
+  return new Promise((resolve, reject) => {
+    task.on('state_changed', null, reject, () =>
+      getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
+    )
+  })
+}
+
+export default function ConfigurarPage() {
+  const router = useRouter()
+  const { user } = useAuth()
+  const [step, setStep] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [step1, setStep1] = useState<Step1Data | null>(null)
+  const [step2, setStep2] = useState<Step2Data | null>(null)
+  const [step3, setStep3] = useState<Step3Data | null>(null)
+  const [step4, setStep4] = useState<Step4Data | null>(null)
+
+  // ID gerado uma única vez para toda a sessão do wizard
+  const produtorId = useMemo(
+    () => doc(collection(firestore, 'produtores')).id,
+    [],
+  )
+
+  async function handleFinalStep(data: Step5Data) {
+    if (!user || !step1 || !step2 || !step3 || !step4) return
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      let logoUrl: string | undefined
+      let bannerUrl: string | undefined
+
+      if (data.logoFile) {
+        logoUrl = await uploadFile(
+          data.logoFile,
+          `produtores/${produtorId}/logo`,
+        )
+      }
+      if (data.bannerFile) {
+        bannerUrl = await uploadFile(
+          data.bannerFile,
+          `produtores/${produtorId}/banner`,
+        )
+      }
+
+      await createProdutor(produtorId, {
+        slug: slugify(step1.name),
+        name: step1.name,
+        description: step1.description,
+        ownerUid: user.uid,
+        phone: step1.phone,
+        ...(step1.document ? { document: step1.document } : {}),
+        address: step2.address,
+        ...(logoUrl ? { logoUrl } : {}),
+        ...(bannerUrl ? { bannerUrl } : {}),
+        isOpen: false,
+        openingHours: step3.openingHours,
+        deliveryFeeInCents: step4.deliveryFeeInCents,
+        minOrderValueInCents: step4.minOrderValueInCents,
+        estimatedDeliveryTimeMin: step4.estimatedDeliveryTimeMin,
+        estimatedDeliveryTimeMax: step4.estimatedDeliveryTimeMax,
+        deliveryRadiusKm: null,
+        certifications: step4.certifications,
+        status: 'pending',
+        commission: 0,
+      })
+
+      router.push('/aguardando-aprovacao')
+    } catch (err) {
+      setError('Erro ao salvar. Verifique sua conexão e tente novamente.')
+      console.error(err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div>
+      {/* Progresso */}
+      <div className="mb-8">
+        <div className="flex items-start">
+          {STEPS.map((label, i) => (
+            <div key={label} className="flex flex-1 items-start">
+              <div className="flex flex-col items-center">
+                <div
+                  className={[
+                    'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors',
+                    i < step
+                      ? 'bg-brand-500 text-white'
+                      : i === step
+                        ? 'bg-brand-600 text-white ring-4 ring-brand-100'
+                        : 'bg-neutral-200 text-neutral-500',
+                  ].join(' ')}
+                >
+                  {i < step ? (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </div>
+                <span
+                  className={[
+                    'mt-1.5 text-xs font-medium',
+                    i <= step ? 'text-brand-600' : 'text-neutral-400',
+                  ].join(' ')}
+                >
+                  {label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={[
+                    'mx-1 mt-4 h-0.5 flex-1',
+                    i < step ? 'bg-brand-400' : 'bg-neutral-200',
+                  ].join(' ')}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo do passo */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+        {step === 0 && (
+          <Step1Basicos
+            initialData={step1}
+            onNext={(d: Step1Data) => { setStep1(d); setStep(1) }}
+          />
+        )}
+        {step === 1 && (
+          <Step2Endereco
+            initialData={step2}
+            onNext={(d: Step2Data) => { setStep2(d); setStep(2) }}
+            onBack={() => setStep(0)}
+          />
+        )}
+        {step === 2 && (
+          <Step3Horarios
+            initialData={step3}
+            onNext={(d: Step3Data) => { setStep3(d); setStep(3) }}
+            onBack={() => setStep(1)}
+          />
+        )}
+        {step === 3 && (
+          <Step4Operacao
+            initialData={step4}
+            onNext={(d: Step4Data) => { setStep4(d); setStep(4) }}
+            onBack={() => setStep(2)}
+          />
+        )}
+        {step === 4 && (
+          <Step5Fotos
+            onNext={handleFinalStep}
+            onBack={() => setStep(3)}
+            submitting={submitting}
+          />
+        )}
+      </div>
+
+      {error && (
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}

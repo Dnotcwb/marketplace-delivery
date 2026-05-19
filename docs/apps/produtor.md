@@ -1,11 +1,11 @@
-# App Produtor
+﻿# App Produtor
 
-Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, pedidos e operação.
+Aplicação destinada aos **produtores / agricultores** para gerenciar cardápio, pedidos e operação.
 
 ## Características-chave
 
 - **Sempre aberto.** É a ferramenta de trabalho — fica numa tablet ou PC do balcão o dia inteiro.
-- **Alertas agressivos.** Som alto + visual quando chega pedido. Sem isso, o restaurante perde venda.
+- **Alertas agressivos.** Som alto + visual quando chega pedido. Sem isso, o produtor perde venda.
 - **Tempo real obrigatório.** Latência < 1s do pedido novo aparecer na tela.
 - **Impressão de comanda.** Suporte a impressoras térmicas (via `window.print()` + CSS @print).
 - **Resistente a quedas de conexão.** Reconectar automaticamente, ressincronizar.
@@ -24,7 +24,7 @@ Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, 
 ### Fluxo 1: Onboarding do produtor
 
 1. Acesso a `/cadastro`
-2. Preenche dados pessoais + dados do restaurante
+2. Preenche dados pessoais + dados do produtor
 3. Upload de documentos (CNPJ, alvará)
 4. Status fica `pending` → aguarda aprovação do admin
 5. Recebe email quando aprovado
@@ -34,9 +34,9 @@ Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, 
 
 **Este é o fluxo mais importante do app. Latência e confiabilidade são tudo.**
 
-1. Restaurante está com o app aberto, tela "Pedidos" como home
+1. Produtor está com o app aberto, tela "Pedidos" como home
 2. Cliente faz pedido → Cloud Function processa → grava em `orders/{id}`
-3. App produtor tem `onSnapshot` ativo em `orders` filtrado por `restaurantId == meuRestaurante && status == 'confirmed'`
+3. App produtor tem `onSnapshot` ativo em `orders` filtrado por `produtorId == meuProdutor && status == 'confirmed'`
 4. Pedido aparece **instantaneamente** no card "Pendentes"
 5. **Som de alerta toca em loop** até o produtor reagir
 6. Notificação visual (badge piscando + cor de destaque)
@@ -62,7 +62,7 @@ Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, 
    - Adicionais: grupos (ex: "Tamanho", "Complementos") com items
 5. **Atualização imediata** — quando produtor marca como esgotado, consumidor vê na hora
 
-### Fluxo 4: Configurações do restaurante
+### Fluxo 4: Configurações do produtor
 
 - Dados básicos (nome, telefone, descrição)
 - Endereço (com mapa pra confirmar pin)
@@ -91,7 +91,7 @@ Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, 
 /financeiro             Faturamento, repasses (Etapa 5)
 
 /configuracoes
-/configuracoes/restaurante     Dados do restaurante
+/configuracoes/produtor     dados do produtor
 /configuracoes/horarios        Horário de funcionamento
 /configuracoes/entrega         Taxas e raio de entrega
 /configuracoes/pagamentos      Métodos aceitos
@@ -120,7 +120,7 @@ Aplicação destinada aos **restaurantes / lojistas** para gerenciar cardápio, 
 const SoundAlertProvider = () => {
   useEffect(() => {
     const unsub = onSnapshot(
-      query(ordersRef, where('restaurantId', '==', myId), where('status', '==', 'confirmed')),
+      query(ordersRef, where('produtorId', '==', myId), where('status', '==', 'confirmed')),
       (snapshot) => {
         const newOrders = snapshot.docChanges().filter(c => c.type === 'added')
         if (newOrders.length > 0) {
@@ -150,7 +150,7 @@ Estratégia: usar `window.print()` com CSS `@media print` específico para impre
 Para impressão direta sem diálogo (kiosk mode), o operador configura o Chrome com `--kiosk-printing`.
 
 Layout da comanda:
-- Cabeçalho: nome do restaurante + nº do pedido + horário
+- Cabeçalho: nome do produtor + nº do pedido + horário
 - Cliente: nome + endereço
 - Itens com adicionais
 - Observações do cliente
@@ -164,3 +164,4 @@ Layout da comanda:
 - IndexedDB para pedidos já carregados (visualização offline)
 - Quando reconecta, `onSnapshot` reanexa automaticamente
 - Banner visual "Sem conexão" quando navigator.onLine === false
+

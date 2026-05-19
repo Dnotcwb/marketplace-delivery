@@ -1,4 +1,4 @@
-# App Backoffice
+﻿# App Backoffice
 
 Painel administrativo da plataforma — usado pela **equipe interna** que gerencia a operação como um todo.
 
@@ -26,20 +26,20 @@ Operações admin via UI são "fachada" — quem realmente faz é a Cloud Functi
 
 ## Fluxos Principais
 
-### Fluxo 1: Aprovação de restaurante
+### Fluxo 1: Aprovação de produtor
 
 1. Produtor cadastra → status `pending`, claim `approved: false`
-2. Admin entra em `/restaurantes/pendentes`
+2. Admin entra em `/produtores/pendentes`
 3. Lista de pendências com filtros (data, cidade)
 4. Admin abre detalhes: vê documentos, dados, endereço
 5. Clica "Aprovar" → modal de confirmação
-6. **Cloud Function `approveRestaurant`:**
+6. **Cloud Function `approveProdutor`:**
    - Valida que quem chama é admin
    - Seta `approved: true` no documento
    - Seta custom claim `approved: true` no Auth do produtor
    - Cria log em `auditLogs/`
    - Envia email para o produtor
-7. Restaurante aparece na home do consumidor
+7. Produtor aparece na home do consumidor
 
 ### Fluxo 2: Cancelar pedido problemático (intervenção)
 
@@ -51,18 +51,18 @@ Operações admin via UI são "fachada" — quem realmente faz é a Cloud Functi
    - Valida admin
    - Muda status para `cancelled_by_admin`
    - Se "estornar": chama Mercado Pago API de refund
-   - Notifica restaurante (FCM)
+   - Notifica produtor (FCM)
    - Notifica cliente (FCM + email)
    - Cria log em `auditLogs/`
 
 ### Fluxo 3: Gestão de comissões
 
 1. `/financeiro/comissoes`
-2. Lista de restaurantes com:
+2. Lista de produtores com:
    - Taxa atual (% sobre pedido)
    - Faturamento mês corrente
    - Comissão devida
-3. Admin pode ajustar taxa por restaurante (com data de vigência)
+3. Admin pode ajustar taxa por produtor (com data de vigência)
 4. Mudanças não afetam pedidos passados
 
 ## Telas / Rotas
@@ -74,9 +74,9 @@ Operações admin via UI são "fachada" — quem realmente faz é a Cloud Functi
 /usuarios                      Lista de usuários
 /usuarios/[uid]                Detalhes do usuário
 
-/restaurantes                  Lista de restaurantes (todos)
-/restaurantes/pendentes        Pendentes de aprovação
-/restaurantes/[id]             Detalhes / edição
+/produtores                  Lista de produtores (todos)
+/produtores/pendentes        Pendentes de aprovação
+/produtores/[id]             Detalhes / edição
 
 /pedidos                       Todos os pedidos
 /pedidos/[id]                  Detalhes + ações admin
@@ -95,7 +95,7 @@ Operações admin via UI são "fachada" — quem realmente faz é a Cloud Functi
 /configuracoes
 /configuracoes/taxas           Taxa padrão da plataforma
 /configuracoes/regioes         Áreas de atendimento
-/configuracoes/categorias      Categorias de restaurante (Pizza, Hambúrguer...)
+/configuracoes/categorias      Categorias de produtor (Pizza, Hambúrguer...)
 
 /auditoria                     Log de ações admin
 
@@ -121,15 +121,15 @@ Cards na primeira dobra:
 - **Pedidos do dia** (contagem + variação % vs ontem)
 - **GMV do dia** (volume bruto de mercadoria — total de pedidos)
 - **Receita da plataforma** (soma das comissões)
-- **Novos cadastros** (clientes + restaurantes)
+- **Novos cadastros (clientes + produtores))
 - **Pedidos em andamento** (não-entregues ainda)
-- **Restaurantes ativos** (com pedido nas últimas 24h)
+- **Produtores ativos** (com pedido nas últimas 24h)
 
 Gráficos:
 
 - Linha: pedidos por dia (últimos 30 dias)
 - Linha: GMV por dia
-- Barra: top 10 restaurantes (faturamento mês)
+- Barra: top 10 produtores (faturamento mês)
 - Pizza: pedidos por categoria
 - Mapa de calor: pedidos por região (futuro)
 
@@ -151,8 +151,8 @@ interface AuditLog {
   id: string
   adminUid: string
   adminEmail: string
-  action: 'restaurant.approve' | 'restaurant.suspend' | 'order.cancel' | ...
-  targetType: 'restaurant' | 'order' | 'user' | ...
+  action: 'produtor.approve' | 'produtor.suspend' | 'order.cancel' | ...
+  targetType: 'produtor' | 'order' | 'user' | ...
   targetId: string
   before: Record<string, any>  // estado antes
   after: Record<string, any>   // estado depois
@@ -175,7 +175,9 @@ A tela `/auditoria` permite filtrar por admin, ação, alvo, data.
 
 ## Métricas que importam
 
-- Tempo médio para aprovar restaurante (KPI interno)
+- Tempo médio para aprovar produtor (KPI interno)
 - Taxa de cancelamento por motivo
 - NPS (futuro)
 - Tickets de suporte em aberto (futuro, quando tiver chat)
+
+
