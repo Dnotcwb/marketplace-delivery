@@ -158,15 +158,38 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 0 — Pré-projeto** (em andamento)
+**Etapa 1 — Base do Projeto** (em andamento)
 
+### Etapa 0 ✅
 - [x] Documentação inicial criada
-- [ ] Monorepo inicializado (Turborepo + pnpm)
-- [ ] Apps Next.js criados (consumidor, produtor, backoffice)
-- [ ] Packages compartilhados criados (types, firebase, ui, services, utils, config)
-- [ ] Projeto Firebase criado
-- [ ] Repositório GitHub criado
-- [ ] Netlify conectado (um site por app)
+
+### Etapa 1 — progresso
+- [x] Monorepo inicializado (Turborepo + pnpm workspaces)
+- [x] Apps Next.js 16 criados (consumidor:3000, produtor:3001, backoffice:3002)
+- [x] Packages compartilhados criados (shared-types, shared-firebase, shared-ui, shared-services, shared-utils, shared-config)
+- [x] Projeto Firebase criado (marketplace-delivery-dev)
+- [x] Firebase CLI configurado
+- [x] AuthProvider + useAuth + useRequireRole em shared-services
+- [x] Cloud Functions: onUserCreated + setUserRole
+- [x] firestore.rules (deny-by-default, todas as collections)
+- [x] firestore.indexes.json (índices críticos)
+- [x] storage.rules
+- [x] .env.local nos 3 apps com credenciais Firebase dev
+- [x] Páginas de login/cadastro no consumidor
+- [x] proxy.ts (proteção de rotas) nos 3 apps
+- [x] Commit inicial + tag etapa-1-base
+- [ ] Habilitar Auth/Firestore/Storage no console Firebase
+- [ ] Repositório GitHub criado e push
+- [ ] Netlify conectado (3 sites)
+
+### Stack efetiva (atualizada)
+- Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
+- React: **19.2.4**
+- Tailwind: **4.x** (configuração via CSS @theme, sem tailwind.config.ts)
+- pnpm: **11.1.3**
+- Turbo: **2.9.14**
+- Node: **24.15.0** (supera requisito mínimo de 22)
+- proxy.ts: renomeado de middleware.ts (breaking change do Next.js 16)
 
 > **Importante:** Atualize esta seção ao fim de cada etapa concluída.
 

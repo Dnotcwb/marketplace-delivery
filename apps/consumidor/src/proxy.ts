@@ -20,7 +20,7 @@ function isPublicPath(pathname: string): boolean {
   )
 }
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (isPublicPath(pathname)) {

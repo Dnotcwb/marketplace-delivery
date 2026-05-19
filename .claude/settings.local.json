@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Recurse -Force \"C:\\\\Users\\\\Felipe\\\\Documents\\\\Projetos de Desenvolvimentos de Sistemas\\\\marketplace-delivery\\\\apps\\\\consumidor\" | Where-Object { !$_.PSIsContainer } | Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}
