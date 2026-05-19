@@ -1,2 +1,4 @@
 export { AuthProvider, useAuth } from './auth/AuthProvider'
 export { useRequireRole } from './auth/useRequireRole'
+export * from './produtor/produtorService'
+export * from './product/productService'
