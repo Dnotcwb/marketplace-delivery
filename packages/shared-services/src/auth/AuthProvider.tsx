@@ -12,7 +12,7 @@ import {
 } from 'firebase/auth'
 import { createContext, useContext, useEffect, useState } from 'react'
 
-interface AuthClaims {
+export interface AuthClaims {
   role: UserRole
   restaurantIds?: string[]
   approved?: boolean
@@ -40,10 +40,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser) {
         const tokenResult = await firebaseUser.getIdTokenResult()
+        const role = (tokenResult.claims['role'] as UserRole | undefined) ?? 'cliente'
+        const restaurantIds = tokenResult.claims['restaurantIds'] as string[] | undefined
+        const approved = tokenResult.claims['approved'] as boolean | undefined
         setClaims({
-          role: (tokenResult.claims['role'] as UserRole | undefined) ?? 'cliente',
-          restaurantIds: tokenResult.claims['restaurantIds'] as string[] | undefined,
-          approved: tokenResult.claims['approved'] as boolean | undefined,
+          role,
+          ...(restaurantIds !== undefined && { restaurantIds }),
+          ...(approved !== undefined && { approved }),
         })
       } else {
         setClaims(null)
