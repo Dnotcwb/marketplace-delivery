@@ -175,9 +175,13 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] firestore.indexes.json (índices críticos)
 - [x] storage.rules
 - [x] .env.local nos 3 apps com credenciais Firebase dev
-- [x] Páginas de login/cadastro no consumidor
+- [x] Páginas de login/cadastro/recuperar-senha nos 3 apps
 - [x] proxy.ts (proteção de rotas) nos 3 apps
-- [x] Commit inicial + tag etapa-1-base
+- [x] Layout consumidor: Header (busca+carrinho) + Footer — route groups (auth)/(main)
+- [x] Layout produtor: Sidebar verde + Topbar — route groups (auth)/(dashboard)
+- [x] Layout backoffice: Sidebar escuro + Topbar — route groups (auth)/(dashboard)
+- [x] Páginas aguardando-aprovacao e acesso-negado no produtor
+- [x] pnpm lint && pnpm typecheck verdes (3 commits)
 - [ ] Habilitar Auth/Firestore/Storage no console Firebase
 - [ ] Repositório GitHub criado e push
 - [ ] Netlify conectado (3 sites)
