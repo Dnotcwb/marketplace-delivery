@@ -83,7 +83,9 @@ service cloud.firestore {
                   || (isProducer() && resource.data.ownerUid == userId())
                   || isAdmin();
 
-      allow create: if isProducer()
+      // Qualquer usuário autenticado pode submeter um cadastro pendente.
+      // O role 'produtor' só é setado APÓS aprovação pelo admin.
+      allow create: if isAuthenticated()
                     && request.resource.data.ownerUid == userId()
                     && request.resource.data.status == 'pending';
 

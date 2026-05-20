@@ -52,8 +52,17 @@ async function uploadFile(file: File, path: string): Promise<string> {
   const storageRef = ref(storage, path)
   const task = uploadBytesResumable(storageRef, file)
   return new Promise((resolve, reject) => {
-    task.on('state_changed', null, reject, () =>
-      getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
+    // Timeout de 30s — evita spinner eterno em caso de regra bloqueada ou sem rede
+    const timeout = setTimeout(() => {
+      task.cancel()
+      reject(new Error(`Upload timeout: ${path}`))
+    }, 30_000)
+
+    task.on(
+      'state_changed',
+      null,
+      (err) => { clearTimeout(timeout); reject(err) },
+      () => { clearTimeout(timeout); getDownloadURL(task.snapshot.ref).then(resolve).catch(reject) },
     )
   })
 }

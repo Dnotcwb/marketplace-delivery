@@ -24,18 +24,17 @@ service firebase.storage {
       allow write: if request.auth.uid == uid && isImage() && sizeUnder(5);
     }
 
-    match /restaurants/{restaurantId}/{type}/{file} {
+    // Fotos de perfil e banner dos produtores
+    match /produtores/{produtorId}/{file} {
       allow read: if true;
-      allow write: if isAuthenticated()
-                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
-                   && isImage()
-                   && sizeUnder(10);
+      allow write: if isAuthenticated() && isImage() && sizeUnder(10);
     }
 
-    match /restaurants/{restaurantId}/products/{productId}/{file} {
+    // Fotos de produtos
+    match /produtores/{produtorId}/products/{productId}/{file} {
       allow read: if true;
       allow write: if isAuthenticated()
-                   && (restaurantId in request.auth.token.restaurantIds || isAdmin())
+                   && (produtorId in request.auth.token.produtorIds || isAdmin())
                    && isImage()
                    && sizeUnder(5);
     }
