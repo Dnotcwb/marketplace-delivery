@@ -56,7 +56,7 @@ async function uploadFile(file: File, path: string): Promise<string> {
     const timeout = setTimeout(() => {
       task.cancel()
       reject(new Error(`Upload timeout: ${path}`))
-    }, 30_000)
+    }, 8_000)
 
     task.on(
       'state_changed',
@@ -95,16 +95,18 @@ export default function ConfigurarPage() {
       let bannerUrl: string | undefined
 
       if (data.logoFile) {
-        logoUrl = await uploadFile(
-          data.logoFile,
-          `produtores/${produtorId}/logo`,
-        )
+        try {
+          logoUrl = await uploadFile(data.logoFile, `produtores/${produtorId}/logo`)
+        } catch (uploadErr) {
+          console.warn('Upload da logo falhou — continuando sem foto:', uploadErr)
+        }
       }
       if (data.bannerFile) {
-        bannerUrl = await uploadFile(
-          data.bannerFile,
-          `produtores/${produtorId}/banner`,
-        )
+        try {
+          bannerUrl = await uploadFile(data.bannerFile, `produtores/${produtorId}/banner`)
+        } catch (uploadErr) {
+          console.warn('Upload do banner falhou — continuando sem foto:', uploadErr)
+        }
       }
 
       await createProdutor(produtorId, {
