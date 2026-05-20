@@ -20,7 +20,8 @@ export const firestore = getFirestore(app)
 export const storage = getStorage(app)
 export const functions = getFunctions(app, 'southamerica-east1')
 
-if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+// Conecta aos emuladores apenas quando NEXT_PUBLIC_USE_EMULATORS=true
+if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && typeof window !== 'undefined') {
   const isEmulatorConnected = (auth as unknown as { _canInitEmulator?: boolean })
     ._canInitEmulator !== false
 
