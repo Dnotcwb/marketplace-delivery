@@ -20,6 +20,7 @@ export function subscribeToReadyOrders(
   const q = query(
     collection(firestore, COL),
     where('status', '==', 'ready'),
+    where('deliveryDriverId', '==', null),
     orderBy('createdAt', 'desc'),
   )
   return onSnapshot(
