@@ -1,20 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/cadastro', '/recuperar-senha', '/aguardando-aprovacao', '/acesso-negado']
-
-export default function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
-  }
-
-  const session = request.cookies.get('__session')?.value
-
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
+// O Firebase SDK armazena auth em IndexedDB (client-side), não em cookies.
+// Por isso não é possível verificar autenticação aqui no edge.
+// A proteção de rotas é feita pelo ProdutorGuard (client component) e
+// pelo AuthGuard no layout de setup — ambos usam onAuthStateChanged.
+export default function proxy(_request: NextRequest) {
   return NextResponse.next()
 }
 
