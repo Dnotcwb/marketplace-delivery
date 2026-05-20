@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { updateProfile } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -31,6 +31,7 @@ const VEHICLE_OPTIONS = [
 export default function ConfigurarPage() {
   const { user, loading, claims } = useAuth()
   const router = useRouter()
+  const [submitError, setSubmitError] = useState('')
 
   const {
     register,
@@ -51,19 +52,30 @@ export default function ConfigurarPage() {
 
   async function onSubmit(data: FormData) {
     if (!user) return
-    await updateProfile(user, { displayName: data.displayName })
-    await setDoc(doc(firestore, 'deliveryDrivers', user.uid), {
-      uid: user.uid,
-      displayName: data.displayName,
-      email: user.email ?? '',
-      phone: data.phone,
-      vehicleType: data.vehicleType,
-      vehiclePlate: data.vehiclePlate ?? '',
-      status: 'pending_approval',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
-    router.replace('/aguardando-aprovacao')
+    setSubmitError('')
+    try {
+      await updateProfile(user, { displayName: data.displayName })
+      await setDoc(doc(firestore, 'deliveryDrivers', user.uid), {
+        uid: user.uid,
+        displayName: data.displayName,
+        email: user.email ?? '',
+        phone: data.phone,
+        vehicleType: data.vehicleType,
+        vehiclePlate: data.vehiclePlate ?? '',
+        status: 'pending_approval',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+      router.replace('/aguardando-aprovacao')
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? ''
+      if (code === 'permission-denied') {
+        setSubmitError('Permissão negada. As regras do Firestore ainda não foram publicadas. Aguarde alguns minutos e tente novamente.')
+      } else {
+        setSubmitError('Erro ao salvar perfil. Tente novamente.')
+      }
+      console.error('configurar onSubmit:', err)
+    }
   }
 
   if (loading || !user) {
@@ -131,6 +143,12 @@ export default function ConfigurarPage() {
             }}
           />
         </div>
+
+        {submitError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {submitError}
+          </div>
+        )}
 
         <button
           type="submit"
