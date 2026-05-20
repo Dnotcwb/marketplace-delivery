@@ -158,7 +158,7 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 6 — App Entregador** (em andamento)
+**Todas as 6 etapas concluídas** ✅
 
 ### Etapa 0 ✅
 - [x] Documentação inicial criada
@@ -246,24 +246,27 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] App consumidor: página /perfil (editar nome, listar/remover endereços, sair)
 - [x] pnpm typecheck verde em todos os packages
 
-### Etapa 6 🔄 — App Entregador (em andamento)
+### Etapa 6 ✅ — App Entregador (concluída)
 - [x] App `apps/entregador` criado (Next.js 16, Tailwind 4, porta 3003)
 - [x] Login + cadastro de conta
 - [x] Página /configurar — perfil do entregador (nome, telefone, veículo, placa)
 - [x] EntregadorGuard — redireciona para /configurar ou /aguardando-aprovacao conforme status
-- [x] Home: lista de entregas disponíveis em tempo real (pedidos ready sem deliveryDriverId)
+- [x] EntregadorGuard: tela "Cadastro aprovado" para claim pendente de propagação (force-refresh token)
+- [x] Home: lista de entregas disponíveis em tempo real (pedidos ready, filtragem client-side)
 - [x] Cloud Function `acceptDelivery` — aceita pedido atomicamente via transação Firestore
 - [x] Página /entrega/[orderId] — detalhes + confirmar entrega (on_delivery → delivered)
 - [x] Página /historico — histórico de entregas do entregador
 - [x] Página /ganhos — resumo de ganhos por período (7/30/90d)
 - [x] Topbar mobile-first com navegação + submenu mobile
 - [x] Tipo `DeliveryDriver` adicionado a shared-types
-- [x] Firestore rules atualizadas (drivers leem orders disponíveis + criar próprio perfil sem role)
-- [x] Firestore indexes: status+createdAt DESC, deliveryDriverId+createdAt DESC
+- [x] Firestore rules: drivers leem orders ready + criar próprio perfil sem role
+- [x] Firestore indexes: status+createdAt DESC, deliveryDriverId+createdAt DESC, status+deliveryDriverId+createdAt DESC
+- [x] Backoffice: tela /entregadores com aprovação, rejeição e suspensão de entregadores
+- [x] Netlify: 4º site criado (marketplace-entregador.netlify.app)
+- [x] Cloud Functions deployadas (acceptDelivery em produção)
 - [x] .env.local criado (mesmas credenciais Firebase dos outros apps, porta 3003)
-- [x] pnpm typecheck verde em todos os packages (10/10)
-- [ ] **Pendente:** Netlify — criar 4º site para o app entregador
-- [ ] **Pendente:** Backoffice — tela de aprovação de entregadores (/entregadores)
+- [x] pnpm typecheck verde em todos os packages
+- [x] Fluxo completo testado: cadastro → aprovação → aceitar entrega → confirmar → histórico → ganhos
 
 ### Stack efetiva (atualizada)
 - Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
