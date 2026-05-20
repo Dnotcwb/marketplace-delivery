@@ -118,7 +118,7 @@ service cloud.firestore {
       allow read: if (isAuthenticated() && resource.data.customerId == userId())
                   || (isProducer() && isOwnerOfProdutor(resource.data.produtorId))
                   || (isDriver() && (resource.data.deliveryDriverId == userId()
-                      || (resource.data.status == 'ready' && resource.data.deliveryDriverId == null)))
+                      || resource.data.status == 'ready'))
                   || isAdmin();
 
       allow create: if false;
