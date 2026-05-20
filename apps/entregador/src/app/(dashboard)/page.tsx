@@ -20,6 +20,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [accepting, setAccepting] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [permissionError, setPermissionError] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -30,17 +31,32 @@ export default function HomePage() {
       if (readyLoaded && driverLoaded) setLoading(false)
     }
 
-    const unsubReady = subscribeToReadyOrders((orders) => {
-      setReadyOrders(orders)
-      readyLoaded = true
-      trySetLoaded()
-    })
+    const unsubReady = subscribeToReadyOrders(
+      (orders) => {
+        setReadyOrders(orders)
+        readyLoaded = true
+        trySetLoaded()
+      },
+      (err) => {
+        if ((err as { code?: string }).code === 'permission-denied') setPermissionError(true)
+        readyLoaded = true
+        trySetLoaded()
+      },
+    )
 
-    const unsubDriver = subscribeToDriverOrders(user.uid, (orders) => {
-      setDriverOrders(orders)
-      driverLoaded = true
-      trySetLoaded()
-    })
+    const unsubDriver = subscribeToDriverOrders(
+      user.uid,
+      (orders) => {
+        setDriverOrders(orders)
+        driverLoaded = true
+        trySetLoaded()
+      },
+      (err) => {
+        if ((err as { code?: string }).code === 'permission-denied') setPermissionError(true)
+        driverLoaded = true
+        trySetLoaded()
+      },
+    )
 
     return () => { unsubReady(); unsubDriver() }
   }, [user])
@@ -116,6 +132,20 @@ export default function HomePage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+          </div>
+        ) : permissionError ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-12 text-center shadow-sm">
+            <div className="mb-3 text-4xl">🔒</div>
+            <p className="font-medium text-neutral-700">Sem permissão para ver entregas</p>
+            <p className="mt-1 text-sm text-neutral-400">
+              Seu acesso ainda está sendo ativado. Aguarde alguns instantes e recarregue a página.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+            >
+              Recarregar
+            </button>
           </div>
         ) : available.length === 0 ? (
           <div className="rounded-xl border border-neutral-200 bg-white px-5 py-12 text-center shadow-sm">

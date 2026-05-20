@@ -15,6 +15,7 @@ const COL = 'orders'
 /** Pedidos com status 'ready' em tempo real (filtragem de sem-driver no cliente). */
 export function subscribeToReadyOrders(
   callback: (orders: Order[]) => void,
+  onError?: (err: Error) => void,
 ): Unsubscribe {
   const q = query(
     collection(firestore, COL),
@@ -24,7 +25,10 @@ export function subscribeToReadyOrders(
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)),
-    (err) => console.error('subscribeToReadyOrders:', err),
+    (err) => {
+      console.error('subscribeToReadyOrders:', err)
+      onError?.(err)
+    },
   )
 }
 
@@ -32,6 +36,7 @@ export function subscribeToReadyOrders(
 export function subscribeToDriverOrders(
   driverUid: string,
   callback: (orders: Order[]) => void,
+  onError?: (err: Error) => void,
 ): Unsubscribe {
   const q = query(
     collection(firestore, COL),
@@ -41,7 +46,10 @@ export function subscribeToDriverOrders(
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)),
-    (err) => console.error('subscribeToDriverOrders:', err),
+    (err) => {
+      console.error('subscribeToDriverOrders:', err)
+      onError?.(err)
+    },
   )
 }
 
