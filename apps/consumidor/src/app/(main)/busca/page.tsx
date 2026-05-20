@@ -3,19 +3,21 @@
 import { listProdutoresAprovados } from '@marketplace/shared-services'
 import type { Produtor } from '@marketplace/shared-types'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import ProdutorCard from '@/components/ProdutorCard'
 
-export default function BuscaPage() {
+function BuscaContent() {
   const searchParams = useSearchParams()
   const query = searchParams.get('q')?.trim() ?? ''
 
   const [produtores, setProdutores] = useState<Produtor[]>([])
   const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(false)
 
   useEffect(() => {
     listProdutoresAprovados()
       .then(setProdutores)
+      .catch(() => setErro(true))
       .finally(() => setLoading(false))
   }, [])
 
@@ -44,7 +46,7 @@ export default function BuscaPage() {
             <h1 className="text-xl font-bold text-neutral-900">
               Resultados para &ldquo;{query}&rdquo;
             </h1>
-            {!loading && (
+            {!loading && !erro && (
               <p className="mt-0.5 text-sm text-neutral-500">
                 {filtered.length === 0
                   ? 'Nenhum produtor encontrado.'
@@ -64,19 +66,36 @@ export default function BuscaPage() {
             <div key={i} className="h-56 animate-pulse rounded-2xl bg-neutral-200" />
           ))}
         </div>
+      ) : erro ? (
+        <div className="flex flex-col items-center gap-3 py-20 text-center">
+          <span className="text-5xl">⚠️</span>
+          <p className="text-lg font-semibold text-neutral-700">
+            Não foi possível carregar os produtores.
+          </p>
+          <p className="text-sm text-neutral-500">
+            Verifique sua conexão e tente novamente.
+          </p>
+          <a href="/busca" className="text-sm text-brand-600 hover:underline">
+            Tentar novamente
+          </a>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <span className="text-5xl">🔍</span>
           <p className="text-lg font-semibold text-neutral-700">
-            Nenhum produtor encontrado para &ldquo;{query}&rdquo;
+            {query
+              ? `Nenhum produtor encontrado para "${query}"`
+              : 'Nenhum produtor cadastrado ainda.'}
           </p>
-          <p className="text-sm text-neutral-500">
-            Tente outras palavras-chave ou{' '}
-            <a href="/" className="text-brand-600 hover:underline">
-              veja todos os produtores
-            </a>
-            .
-          </p>
+          {query && (
+            <p className="text-sm text-neutral-500">
+              Tente outras palavras-chave ou{' '}
+              <a href="/" className="text-brand-600 hover:underline">
+                veja todos os produtores
+              </a>
+              .
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -86,5 +105,26 @@ export default function BuscaPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function BuscaSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-6 h-7 w-48 animate-pulse rounded-lg bg-neutral-200" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-56 animate-pulse rounded-2xl bg-neutral-200" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function BuscaPage() {
+  return (
+    <Suspense fallback={<BuscaSkeleton />}>
+      <BuscaContent />
+    </Suspense>
   )
 }

@@ -17,11 +17,13 @@ const CERT_FILTERS: { value: ProdutorCertification | 'all'; label: string }[] = 
 export default function HomePage() {
   const [produtores, setProdutores] = useState<Produtor[]>([])
   const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(false)
   const [activeCert, setActiveCert] = useState<ProdutorCertification | 'all'>('all')
 
   useEffect(() => {
     listProdutoresAprovados()
       .then(setProdutores)
+      .catch(() => setErro(true))
       .finally(() => setLoading(false))
   }, [])
 
@@ -70,6 +72,22 @@ export default function HomePage() {
               className="h-56 animate-pulse rounded-2xl bg-neutral-200"
             />
           ))}
+        </div>
+      ) : erro ? (
+        <div className="flex flex-col items-center gap-3 py-20 text-center">
+          <span className="text-5xl">⚠️</span>
+          <p className="text-lg font-semibold text-neutral-700">
+            Não foi possível carregar os produtores.
+          </p>
+          <p className="text-sm text-neutral-500">
+            Verifique sua conexão ou tente recarregar a página.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-sm text-brand-600 hover:underline"
+          >
+            Recarregar
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
