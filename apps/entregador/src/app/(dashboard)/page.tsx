@@ -21,6 +21,7 @@ export default function HomePage() {
   const [accepting, setAccepting] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [permissionError, setPermissionError] = useState(false)
+  const [queryError, setQueryError] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -38,7 +39,9 @@ export default function HomePage() {
         trySetLoaded()
       },
       (err) => {
-        if ((err as { code?: string }).code === 'permission-denied') setPermissionError(true)
+        const code = (err as { code?: string }).code
+        if (code === 'permission-denied') setPermissionError(true)
+        else setQueryError(`Erro ao carregar entregas (${code ?? err.message})`)
         readyLoaded = true
         trySetLoaded()
       },
@@ -52,7 +55,9 @@ export default function HomePage() {
         trySetLoaded()
       },
       (err) => {
-        if ((err as { code?: string }).code === 'permission-denied') setPermissionError(true)
+        const code = (err as { code?: string }).code
+        if (code === 'permission-denied') setPermissionError(true)
+        else setQueryError((prev) => prev || `Erro ao carregar entregas (${code ?? err.message})`)
         driverLoaded = true
         trySetLoaded()
       },
@@ -126,6 +131,16 @@ export default function HomePage() {
         {error && (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
             {error}
+          </div>
+        )}
+
+        {queryError && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <p className="font-medium">Erro ao carregar pedidos</p>
+            <p className="mt-0.5 text-xs font-mono">{queryError}</p>
+            <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">
+              Recarregar
+            </button>
           </div>
         )}
 
