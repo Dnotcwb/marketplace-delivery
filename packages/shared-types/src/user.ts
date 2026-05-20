@@ -34,21 +34,6 @@ export interface User {
   }
 }
 
-export interface Address {
-  id: string
-  label: string
-  cep: string
-  street: string
-  number: string
-  complement?: string
-  neighborhood: string
-  city: string
-  state: string
-  reference?: string
-  isDefault: boolean
-  createdAt: Timestamp
-  updatedAt: Timestamp
-}
 
 export interface FcmToken {
   token: string
