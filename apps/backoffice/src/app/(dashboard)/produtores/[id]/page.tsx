@@ -4,6 +4,8 @@ import {
   callSetUserRole,
   getProdutorById,
   setProdutorStatus,
+  toggleProdutorOpen,
+  updateProdutor,
 } from '@marketplace/shared-services'
 import { useAuth } from '@marketplace/shared-services'
 import type { Produtor, ProdutorCertification } from '@marketplace/shared-types'
@@ -51,10 +53,16 @@ export default function ProdutorDetailPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [commissionInput, setCommissionInput] = useState('')
+  const [savingCommission, setSavingCommission] = useState(false)
+  const [commissionStatus, setCommissionStatus] = useState<'idle' | 'ok' | 'err'>('idle')
 
   useEffect(() => {
     if (!id) return
-    getProdutorById(id).then((p) => setProdutor(p ?? null))
+    getProdutorById(id).then((p) => {
+      setProdutor(p ?? null)
+      if (p) setCommissionInput(String(p.commission))
+    })
   }, [id])
 
   if (produtor === undefined) {
@@ -105,6 +113,38 @@ export default function ProdutorDetailPage() {
     }
   }
 
+  async function handleToggleOpen() {
+    if (!produtor) return
+    setActing(true)
+    setError(null)
+    try {
+      await toggleProdutorOpen(produtor.id, !produtor.isOpen)
+      setProdutor((p) => p ? { ...p, isOpen: !p.isOpen } : p)
+    } catch {
+      setError('Erro ao alterar status. Tente novamente.')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  async function handleSaveCommission() {
+    if (!produtor) return
+    const pct = parseFloat(commissionInput)
+    if (isNaN(pct) || pct < 0 || pct > 100) return
+    setSavingCommission(true)
+    setCommissionStatus('idle')
+    try {
+      await updateProdutor(produtor.id, { commission: pct })
+      setProdutor((p) => p ? { ...p, commission: pct } : p)
+      setCommissionStatus('ok')
+      setTimeout(() => setCommissionStatus('idle'), 3000)
+    } catch {
+      setCommissionStatus('err')
+    } finally {
+      setSavingCommission(false)
+    }
+  }
+
   async function handleSuspend() {
     if (!produtor) return
     setActing(true)
@@ -137,12 +177,28 @@ export default function ProdutorDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold text-neutral-900">{produtor.name}</h1>
             <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badge.cls}`}>
               {badge.label}
             </span>
+            {produtor.status === 'approved' && (
+              <button
+                type="button"
+                onClick={handleToggleOpen}
+                disabled={acting}
+                className={[
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors disabled:opacity-50',
+                  produtor.isOpen
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
+                ].join(' ')}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${produtor.isOpen ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
+                {produtor.isOpen ? 'Aberta — clique para fechar' : 'Fechada — clique para abrir'}
+              </button>
+            )}
           </div>
           <p className="text-sm text-neutral-500">ID: {produtor.id}</p>
         </div>
@@ -339,6 +395,35 @@ export default function ProdutorDetailPage() {
             {acting ? 'Processando…' : 'Aprovar e reativar'}
           </button>
         )}
+
+        {/* Comissão */}
+        <div className="mt-5 border-t border-neutral-100 pt-5">
+          <p className="mb-2 text-sm font-semibold text-neutral-700">Comissão da plataforma</p>
+          <div className="flex items-center gap-3">
+            <div className="relative w-32">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={commissionInput}
+                onChange={(e) => setCommissionInput(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 pr-7 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">%</span>
+            </div>
+            <button
+              onClick={handleSaveCommission}
+              disabled={savingCommission}
+              className="rounded-lg bg-neutral-800 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+            >
+              {savingCommission ? 'Salvando…' : 'Salvar'}
+            </button>
+            {commissionStatus === 'ok' && <span className="text-sm text-emerald-600">Salvo!</span>}
+            {commissionStatus === 'err' && <span className="text-sm text-red-500">Erro ao salvar.</span>}
+          </div>
+          <p className="mt-1 text-xs text-neutral-400">Comissão atual: {produtor.commission}%</p>
+        </div>
       </div>
     </div>
   )

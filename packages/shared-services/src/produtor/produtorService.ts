@@ -148,6 +148,10 @@ export async function setProdutorStatus(
     ...(status === 'approved' && {
       approvedAt: now,
       approvedBy: extra?.approvedBy ?? null,
+      isOpen: true,
+    }),
+    ...(status === 'suspended' && {
+      isOpen: false,
     }),
     ...(status === 'rejected' && {
       rejectedAt: now,

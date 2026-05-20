@@ -161,7 +161,7 @@ export default function ProdutorSlugPage() {
       )}
 
       {/* Banner */}
-      <div className="relative h-48 w-full overflow-hidden bg-neutral-200 sm:h-64">
+      <div className="relative isolate h-48 w-full overflow-hidden bg-neutral-200 sm:h-64">
         {produtor.bannerUrl ? (
           <Image
             src={produtor.bannerUrl}
@@ -179,7 +179,7 @@ export default function ProdutorSlugPage() {
       </div>
 
       {/* Cabeçalho do produtor */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6">
         {/* Logo */}
         <div className="-mt-10 mb-4 flex items-end gap-4">
           <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border-4 border-white shadow-md">

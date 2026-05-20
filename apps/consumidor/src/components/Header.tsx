@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Logo from './Logo'
+import NotificationBell from './NotificationBell'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -59,6 +60,9 @@ export default function Header() {
 
         {/* Ações */}
         <div className="flex flex-shrink-0 items-center gap-2">
+
+          {/* Notificações */}
+          <NotificationBell />
 
           {/* Carrinho */}
           <button

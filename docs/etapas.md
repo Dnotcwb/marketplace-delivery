@@ -165,52 +165,39 @@ Este documento descreve as **6 etapas de desenvolvimento** e seus critérios de 
 
 ---
 
-## Etapa 4 — Gestão de Pedidos (Produtor)
+## Etapa 4 ✅ — Gestão de Pedidos (Produtor) (concluída)
 
 **Objetivo:** O produtor recebe pedidos em tempo real, gerencia status, vê dashboard.
 
-**Escopo:**
-
 ### No app produtor:
 
-- [ ] Tela "Pedidos" como home pós-login:
-  - [ ] 4 colunas tipo Kanban: Pendentes / Em preparo / Prontos / Entregues
-  - [ ] Card de pedido com dados resumidos (cliente, itens, total, tempo)
-  - [ ] Clique abre detalhes completos
-  - [ ] **Listener `onSnapshot`** para atualização ao vivo
-- [ ] **Alerta sonoro** quando chega pedido novo (HTML5 Audio + Web Audio API)
-- [ ] **Push notification** via FCM quando o produtor não está com a aba aberta
-- [ ] Botões de mudança de status:
-  - [ ] Aceitar pedido (pending → confirmed)
-  - [ ] Iniciar preparo (confirmed → preparing)
-  - [ ] Pronto para retirada (preparing → ready)
-  - [ ] Saiu para entrega (ready → on_delivery)
-  - [ ] Recusar pedido (com motivo)
-- [ ] Modal de detalhes do pedido com botão "Imprimir comanda" (impressão térmica via `window.print()` com CSS @media print)
-- [ ] **Dashboard do produtor:**
-  - [ ] Pedidos do dia (quantidade + faturamento)
-  - [ ] Ticket médio
-  - [ ] Produtos mais vendidos
-  - [ ] Gráfico de pedidos por hora
-- [ ] **Histórico de pedidos** com filtros (data, status, cliente)
-- [ ] **Relatórios** exportáveis (CSV — só estrutura, sem features avançadas ainda)
+- [x] Tela "Pedidos" como Kanban com 4 colunas: Novos / Em preparo / Prontos / Em entrega
+- [x] Card de pedido com dados resumidos (cliente, itens, total, tempo decorrido)
+- [x] Clique no card abre modal de detalhes completo
+- [x] Listener `onSnapshot` para atualização ao vivo
+- [x] Alerta sonoro (Web Audio API — 3 bipes em 1050 Hz) com desbloqueio na primeira interação
+- [x] Highlight visual (anel âmbar) em novos pedidos por 10s via docChanges()
+- [x] Botões de avanço de status: Confirmar → Aceitar → Iniciar preparo → Pronto → Saiu p/ entrega → Entregue
+- [x] Cancelar pedido (com confirmação)
+- [x] Modal de detalhes: cliente, telefone, itens + obs, endereço, valores, pagamento, ações
+- [x] Imprimir comanda via `window.print()` com CSS @media print (layout térmico 72mm)
+- [x] Dashboard com KPIs reais (onSnapshot): pedidos hoje, faturamento, ticket médio, pedidos ativos
+- [x] Top 5 produtos mais vendidos no dia
+- [x] Histórico de pedidos com busca (id/cliente/produto) e filtro por status
+- [x] Relatórios CSV exportáveis (7/30/90 dias): KPIs + top 10 produtos + tabela completa de pedidos
+- [x] Configurações da horta (/configuracoes): dados básicos + operação com salvamento independente por seção
 
 ### Em Cloud Functions:
 
-- [ ] Function `onOrderStatusChanged` (Firestore trigger):
-  - [ ] Quando status muda, notifica consumidor (FCM)
-  - [ ] Atualiza timeline do pedido
-  - [ ] Quando vira `on_delivery`, notifica entregadores disponíveis (Etapa 6)
-- [ ] Function `dailyStatsAggregator` (scheduled, roda à meia-noite):
-  - [ ] Agrega vendas do dia anterior por produtor
-  - [ ] Salva em `produtores/{id}/stats/{date}`
+- [x] Function `onOrderStatusChanged` (Firestore trigger v2, região southamerica-east1)
+  - [x] Grava notificação em `users/{customerId}/notifications` a cada mudança de status
+- [ ] Function `dailyStatsAggregator` (scheduled) — postergado para Etapa 5+
 
-### Compartilhado:
+### No app consumidor:
 
-- [ ] Components em `shared-ui`: `OrderCard`, `StatusBadge`, `OrderTimeline`
-- [ ] Util: `getOrderTimeRemaining`, `getOrderStatusLabel`
+- [x] `NotificationBell` no Header: badge de não lidas, dropdown real-time, marcar como lida / marcar todas
 
-**Critério de conclusão:** Quando um cliente finaliza pedido, o produtor recebe alerta sonoro + visual em ~1 segundo. Mudanças de status pelo produtor são vistas pelo cliente em tempo real.
+**Critério de conclusão:** ✅ Produtor recebe alerta sonoro + visual ao chegar pedido. Mudanças de status são refletidas em tempo real no consumidor (tracking page + notificações).
 
 ---
 

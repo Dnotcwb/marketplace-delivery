@@ -117,7 +117,8 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if (isAuthenticated() && resource.data.customerId == userId())
                   || (isProducer() && isOwnerOfProdutor(resource.data.produtorId))
-                  || (isDriver() && resource.data.deliveryDriverId == userId())
+                  || (isDriver() && (resource.data.deliveryDriverId == userId()
+                      || (resource.data.status == 'ready' && resource.data.deliveryDriverId == null)))
                   || isAdmin();
 
       allow create: if false;
@@ -150,9 +151,10 @@ service cloud.firestore {
 
     // ==================== DELIVERY DRIVERS ====================
     match /deliveryDrivers/{driverId} {
-      allow read: if (isDriver() && userId() == driverId) || isAdmin();
+      // Qualquer usuário autenticado pode ler/criar seu próprio perfil de entregador
+      allow read: if (isAuthenticated() && userId() == driverId) || isAdmin();
 
-      allow create: if isDriver()
+      allow create: if isAuthenticated()
                     && userId() == driverId
                     && request.resource.data.status == 'pending_approval';
 

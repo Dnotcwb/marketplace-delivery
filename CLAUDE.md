@@ -158,7 +158,7 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 3 — Carrinho, Checkout e Pagamento** (em andamento)
+**Etapa 6 — App Entregador** (em andamento)
 
 ### Etapa 0 ✅
 - [x] Documentação inicial criada
@@ -203,16 +203,67 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] Tela de cadastro no app produtor (/cadastro) → redireciona para /configurar
 - [x] ProdutorGuard: role=cliente redireciona para /configurar em vez de /acesso-negado
 
-### Etapa 3 — progresso
-- [ ] Tipos: Order, OrderItem, OrderStatus, Payment, Address, Coupon em shared-types
-- [ ] CartProvider em shared-services (localStorage + Firestore)
-- [ ] Sidebar/modal de carrinho no consumidor
-- [ ] Tela de checkout (endereço + pagamento + resumo)
-- [ ] Integração Mercado Pago (PIX + cartão sandbox)
-- [ ] Cloud Function createOrder (callable)
-- [ ] Cloud Function mercadoPagoWebhook (HTTP)
-- [ ] Tela de acompanhamento de pedido (real-time)
-- [ ] Backoffice: listagem básica de pedidos
+### Etapa 3 ✅ — Carrinho, Checkout e Pagamento (concluída)
+- [x] Tipos: Order, OrderItem, OrderStatus, Payment, Address, Coupon em shared-types
+- [x] CartProvider em shared-services (localStorage, um produtor por vez)
+- [x] Sidebar/drawer de carrinho no consumidor (CartDrawer)
+- [x] Tela de checkout /checkout (endereço + pagamento + resumo)
+- [x] Integração Mercado Pago (PIX + cartão via Checkout Pro)
+- [x] Cloud Function createOrder (callable) — valida itens, cria pedido, processa MP
+- [x] Cloud Function mercadoPagoWebhook (HTTP) — atualiza status ao confirmar pagamento
+- [x] Tela de acompanhamento /pedido/[orderId] (real-time via Firestore)
+- [x] Backoffice: listagem de pedidos com filtros e avanço de status /pedidos
+- [x] addressService — CRUD de endereços do usuário
+- [x] Formulário de CEP com auto-fill via ViaCEP
+- **Pendente:** Configurar MERCADO_PAGO_ACCESS_TOKEN no Firebase Secret Manager para ativar pagamentos reais (ver docs/integracoes.md)
+
+### Etapa 4 ✅ — Gestão de Pedidos (Produtor) (concluída)
+- [x] Kanban de pedidos com 4 colunas (Novos / Em preparo / Prontos / Em entrega)
+- [x] onSnapshot em tempo real com detecção de novos pedidos via docChanges()
+- [x] Alerta sonoro (Web Audio API — 3 bipes) com desbloqueio na primeira interação
+- [x] Highlight visual (anel âmbar) em novos pedidos por 10s
+- [x] Botões de avanço de status: Confirmar → Aceitar → Iniciar preparo → Pronto → Saiu p/ entrega → Entregue
+- [x] Cancelar pedido, modal de detalhes completo (cliente, itens, endereço, valores, pagamento)
+- [x] Imprimir comanda (window.print() + CSS @media print, layout térmico 72mm)
+- [x] Dashboard do produtor com KPIs reais (onSnapshot): pedidos hoje, faturamento, ticket médio, pedidos ativos
+- [x] Top 5 produtos mais vendidos no dia
+- [x] Histórico de pedidos com busca (id/cliente/produto) e filtro por status
+- [x] Relatórios CSV exportáveis (7/30/90 dias): KPIs + top produtos + tabela de pedidos
+- [x] Configurações da horta: dados básicos + operação (taxas, tempos, certificações)
+- [x] Cloud Function onOrderStatusChanged → notificações em users/{uid}/notifications
+- [x] App consumidor: NotificationBell no Header com badge, dropdown real-time, marcar como lida
+- [x] pnpm lint && pnpm typecheck verdes
+
+### Etapa 5 ✅ — Administração (Backoffice) (concluída)
+- [x] Dashboard com KPIs reais: pedidos hoje, GMV hoje/30d, ticket médio, taxa de conclusão
+- [x] Top 5 produtores por GMV (30d) + últimos 10 pedidos na home
+- [x] Cupons: CRUD completo (criar/editar/excluir, toggle ativo, validade, tipo, limites)
+- [x] Financeiro: faturamento por produtor por período (7/30/90d) com GMV, pedidos, ticket médio e % do total
+- [x] Configurações da plataforma: nome, suporte, comissão padrão, taxas de entrega (appConfig/platform)
+- [x] Entregadores: stub informativo (Etapa 6)
+- [x] Cancelamento de pedidos pelo admin (/pedidos — já existia)
+- [x] Edição de comissão por produtor no detalhe do produtor
+- [x] App consumidor: página /perfil (editar nome, listar/remover endereços, sair)
+- [x] pnpm typecheck verde em todos os packages
+
+### Etapa 6 🔄 — App Entregador (em andamento)
+- [x] App `apps/entregador` criado (Next.js 16, Tailwind 4, porta 3003)
+- [x] Login + cadastro de conta
+- [x] Página /configurar — perfil do entregador (nome, telefone, veículo, placa)
+- [x] EntregadorGuard — redireciona para /configurar ou /aguardando-aprovacao conforme status
+- [x] Home: lista de entregas disponíveis em tempo real (pedidos ready sem deliveryDriverId)
+- [x] Cloud Function `acceptDelivery` — aceita pedido atomicamente via transação Firestore
+- [x] Página /entrega/[orderId] — detalhes + confirmar entrega (on_delivery → delivered)
+- [x] Página /historico — histórico de entregas do entregador
+- [x] Página /ganhos — resumo de ganhos por período (7/30/90d)
+- [x] Topbar mobile-first com navegação + submenu mobile
+- [x] Tipo `DeliveryDriver` adicionado a shared-types
+- [x] Firestore rules atualizadas (drivers leem orders disponíveis + criar próprio perfil sem role)
+- [x] Firestore indexes: status+createdAt DESC, deliveryDriverId+createdAt DESC
+- [x] .env.local criado (mesmas credenciais Firebase dos outros apps, porta 3003)
+- [x] pnpm typecheck verde em todos os packages (10/10)
+- [ ] **Pendente:** Netlify — criar 4º site para o app entregador
+- [ ] **Pendente:** Backoffice — tela de aprovação de entregadores (/entregadores)
 
 ### Stack efetiva (atualizada)
 - Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
