@@ -4,7 +4,9 @@ import {
   getProdutorBySlug,
   subscribeToCategories,
   subscribeToProducts,
+  useCart,
 } from '@marketplace/shared-services'
+import type { CartProdutor } from '@marketplace/shared-services'
 import type { Category, Product, Produtor, ProdutorCertification } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
@@ -40,12 +42,14 @@ function InfoPill({ children, accent }: { children: React.ReactNode; accent?: bo
 export default function ProdutorSlugPage() {
   const params = useParams()
   const slug = typeof params.slug === 'string' ? params.slug : ''
+  const { addItem, clearCart, openCart } = useCart()
 
   const [produtor, setProdutor] = useState<Produtor | null | undefined>(undefined)
   const [categories, setCategories] = useState<Category[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [hoursOpen, setHoursOpen] = useState(false)
+  const [conflictProduct, setConflictProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     if (!slug) return
@@ -82,6 +86,42 @@ export default function ProdutorSlugPage() {
 
   const products = allProducts.filter((p) => p.categoryId === activeCategoryId)
 
+  function handleAddItem(product: Product) {
+    if (!produtor) return
+    const cartProdutor: CartProdutor = {
+      id: produtor.id,
+      slug: produtor.slug,
+      name: produtor.name,
+      deliveryFeeInCents: produtor.deliveryFeeInCents,
+      minOrderValueInCents: produtor.minOrderValueInCents,
+      estimatedDeliveryTimeMin: produtor.estimatedDeliveryTimeMin,
+      estimatedDeliveryTimeMax: produtor.estimatedDeliveryTimeMax,
+    }
+    const result = addItem(product, cartProdutor)
+    if (result === 'conflict') {
+      setConflictProduct(product)
+    } else {
+      openCart()
+    }
+  }
+
+  function handleConflictConfirm() {
+    if (!conflictProduct || !produtor) return
+    const cartProdutor: CartProdutor = {
+      id: produtor.id,
+      slug: produtor.slug,
+      name: produtor.name,
+      deliveryFeeInCents: produtor.deliveryFeeInCents,
+      minOrderValueInCents: produtor.minOrderValueInCents,
+      estimatedDeliveryTimeMin: produtor.estimatedDeliveryTimeMin,
+      estimatedDeliveryTimeMax: produtor.estimatedDeliveryTimeMax,
+    }
+    clearCart()
+    addItem(conflictProduct, cartProdutor)
+    setConflictProduct(null)
+    openCart()
+  }
+
   const minOrder =
     produtor.minOrderValueInCents === 0
       ? null
@@ -94,6 +134,32 @@ export default function ProdutorSlugPage() {
 
   return (
     <div>
+      {/* Modal de conflito de produtor */}
+      {conflictProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-2 text-lg font-bold text-neutral-900">Trocar de horta?</h2>
+            <p className="mb-5 text-sm text-neutral-500">
+              Seu carrinho tem itens de outra horta. Ao continuar, os itens anteriores serão removidos.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConflictProduct(null)}
+                className="flex-1 rounded-xl border border-neutral-300 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConflictConfirm}
+                className="flex-1 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+              >
+                Trocar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Banner */}
       <div className="relative h-48 w-full overflow-hidden bg-neutral-200 sm:h-64">
         {produtor.bannerUrl ? (
@@ -312,9 +378,10 @@ export default function ProdutorSlugPage() {
                       </p>
                     </div>
 
-                    {/* Botão adicionar — placeholder Etapa 3 */}
+                    {/* Botão adicionar */}
                     <button
                       type="button"
+                      onClick={() => handleAddItem(product)}
                       disabled={!produtor.isOpen}
                       title={produtor.isOpen ? 'Adicionar ao carrinho' : 'Produtor fechado no momento'}
                       className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"

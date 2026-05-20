@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@marketplace/shared-services'
+import { useAuth, useCart } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -8,6 +8,7 @@ import Logo from './Logo'
 
 export default function Header() {
   const { user, logout } = useAuth()
+  const { itemCount, openCart } = useCart()
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -59,14 +60,20 @@ export default function Header() {
         {/* Ações */}
         <div className="flex flex-shrink-0 items-center gap-2">
 
-          {/* Carrinho (placeholder — Etapa 3) */}
+          {/* Carrinho */}
           <button
+            onClick={openCart}
             className="relative rounded-full p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-brand-600"
-            aria-label="Ver carrinho"
+            aria-label={`Ver carrinho${itemCount > 0 ? ` — ${itemCount} ${itemCount === 1 ? 'item' : 'itens'}` : ''}`}
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
+            {itemCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">
+                {itemCount > 9 ? '9+' : itemCount}
+              </span>
+            )}
           </button>
 
           {/* Usuário autenticado */}
