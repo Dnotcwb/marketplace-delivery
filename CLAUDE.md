@@ -158,7 +158,7 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 
 ## Status Atual
 
-**Etapa 2 — Produtores e Produtos** (em andamento)
+**Etapa 3 — Carrinho, Checkout e Pagamento** (em andamento)
 
 ### Etapa 0 ✅
 - [x] Documentação inicial criada
@@ -186,17 +186,33 @@ A claim é setada via Cloud Function quando o usuário é aprovado. **Sem claim,
 - [x] Repositório GitHub criado e push (https://github.com/Dnotcwb/marketplace-delivery)
 - [x] Netlify conectado — 3 sites com build funcionando (tag: etapa-1)
 
-### Etapa 2 — progresso
+### Etapa 2 ✅ — Produtores e Produtos (concluída)
 - [x] Tipos: Produtor, Product, Category em shared-types
-- [x] Services: produtorService, productService em shared-services
+- [x] Services: produtorService, productService, adminService em shared-services
 - [x] Regras Firestore para produtores, products, categories
-- [ ] App produtor: wizard de criação do perfil de horta
-- [ ] App produtor: CRUD de categorias e produtos
-- [ ] App produtor: status aberto/fechado
-- [ ] App consumidor: home com listagem de produtores
-- [ ] App consumidor: busca + filtros por categoria
-- [ ] App consumidor: página /produtor/[slug] com catálogo
-- [ ] App backoffice: aprovação de produtores
+- [x] App produtor: wizard de criação do perfil de horta (/configurar)
+- [x] App produtor: CRUD de categorias e produtos (/catalogo)
+- [x] App produtor: status aberto/fechado (toggle na Topbar)
+- [x] App consumidor: home com listagem de produtores (filtro por certificação)
+- [x] App consumidor: busca + filtros (/busca)
+- [x] App consumidor: página /produtor/[slug] com catálogo por categoria
+- [x] App backoffice: aprovação/rejeição/suspensão de produtores (/produtores)
+- [x] App backoffice: página de detalhe do produtor (/produtores/[id])
+- [x] Fix crítico: emuladores Firebase gateados em NEXT_PUBLIC_USE_EMULATORS=true
+- [x] pnpm lint && pnpm typecheck verdes (tag: etapa-2)
+- [x] Tela de cadastro no app produtor (/cadastro) → redireciona para /configurar
+- [x] ProdutorGuard: role=cliente redireciona para /configurar em vez de /acesso-negado
+
+### Etapa 3 — progresso
+- [ ] Tipos: Order, OrderItem, OrderStatus, Payment, Address, Coupon em shared-types
+- [ ] CartProvider em shared-services (localStorage + Firestore)
+- [ ] Sidebar/modal de carrinho no consumidor
+- [ ] Tela de checkout (endereço + pagamento + resumo)
+- [ ] Integração Mercado Pago (PIX + cartão sandbox)
+- [ ] Cloud Function createOrder (callable)
+- [ ] Cloud Function mercadoPagoWebhook (HTTP)
+- [ ] Tela de acompanhamento de pedido (real-time)
+- [ ] Backoffice: listagem básica de pedidos
 
 ### Stack efetiva (atualizada)
 - Next.js: **16.2.6** (mais novo que o planejado — Turbopack ativo)
