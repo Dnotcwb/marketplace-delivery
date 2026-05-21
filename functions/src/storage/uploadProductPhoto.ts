@@ -12,8 +12,8 @@ async function getFirebaseIdToken(): Promise<string> {
     role: 'admin',
   })
 
-  const apiKey = process.env['FIREBASE_API_KEY']
-  if (!apiKey) throw new Error('Variável FIREBASE_API_KEY não configurada nas Functions')
+  const apiKey = process.env['WEB_API_KEY']
+  if (!apiKey) throw new Error('Variável WEB_API_KEY não configurada nas Functions')
 
   const res = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
