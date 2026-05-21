@@ -53,51 +53,88 @@ const MENU = [
   },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  open: boolean
+  onClose: () => void
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="flex w-64 flex-col bg-brand-800">
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b border-brand-900/50 px-5">
-        <Link href="/" aria-label="Ambiente Livre — início">
-          <Logo variant="full" size={32} dark />
-        </Link>
-      </div>
+    <>
+      {/* Backdrop overlay — mobile only */}
+      <div
+        className={[
+          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden',
+          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+        ].join(' ')}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-      {/* Menu */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menu principal">
-        <ul className="space-y-0.5" role="list">
-          {MENU.map((item) => {
-            const active = pathname === item.href
-              || (item.href !== '/' && pathname.startsWith(item.href))
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={[
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-brand-900/60 text-white'
-                      : 'text-brand-200 hover:bg-brand-700/60 hover:text-white',
-                  ].join(' ')}
-                >
-                  <span className={active ? 'text-brand-300' : 'text-brand-400'}>
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+      {/* Sidebar panel */}
+      <aside
+        className={[
+          // Mobile: fixed overlay drawer que desliza da esquerda
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-brand-800',
+          'transition-transform duration-300 ease-in-out',
+          open ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: estático no fluxo normal, sempre visível
+          'lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:transition-none',
+        ].join(' ')}
+      >
+        {/* Logo + botão fechar (mobile) */}
+        <div className="flex h-16 items-center justify-between border-b border-brand-900/50 px-5">
+          <Link href="/" onClick={onClose} aria-label="Ambiente Livre — início">
+            <Logo variant="full" size={32} dark />
+          </Link>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-brand-300 transition-colors hover:bg-brand-700/60 hover:text-white lg:hidden"
+            aria-label="Fechar menu"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-      {/* Versão */}
-      <div className="px-5 py-3 border-t border-brand-900/50">
-        <span className="text-xs text-brand-500">Ambiente Livre · Produtor</span>
-      </div>
-    </aside>
+        {/* Menu */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menu principal">
+          <ul className="space-y-1" role="list">
+            {MENU.map((item) => {
+              const active = pathname === item.href
+                || (item.href !== '/' && pathname.startsWith(item.href))
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onClose}
+                    aria-current={active ? 'page' : undefined}
+                    className={[
+                      'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors',
+                      active
+                        ? 'bg-brand-900/60 text-white'
+                        : 'text-brand-200 hover:bg-brand-700/60 hover:text-white',
+                    ].join(' ')}
+                  >
+                    <span className={active ? 'text-brand-300' : 'text-brand-400'}>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        {/* Versão */}
+        <div className="border-t border-brand-900/50 px-5 py-4">
+          <span className="text-xs text-brand-500">Ambiente Livre · Produtor</span>
+        </div>
+      </aside>
+    </>
   )
 }

@@ -3,7 +3,7 @@
 import { useAuth, useCart } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Logo from './Logo'
 import NotificationBell from './NotificationBell'
 
@@ -13,6 +13,7 @@ export default function Header() {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -22,9 +23,23 @@ export default function Header() {
   }
 
   async function handleLogout() {
+    setMenuOpen(false)
     await logout()
     router.push('/login')
   }
+
+  // Fecha o menu ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen])
 
   const inicial = user?.displayName?.charAt(0).toUpperCase()
     ?? user?.email?.charAt(0).toUpperCase()
@@ -32,16 +47,21 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white shadow-sm">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
 
-        {/* Logo */}
-        <Link href="/" className="flex-shrink-0" aria-label="Ambiente Livre — início">
-          <Logo variant="full" size={34} />
+        {/* Logo — ícone no mobile, completo no sm+ */}
+        <Link href="/" className="shrink-0" aria-label="Ambiente Livre — início">
+          <span className="sm:hidden">
+            <Logo variant="mark" size={32} />
+          </span>
+          <span className="hidden sm:block">
+            <Logo variant="full" size={34} />
+          </span>
         </Link>
 
         {/* Busca */}
-        <form onSubmit={handleSearch} className="flex flex-1 items-center">
-          <div className="relative w-full max-w-xl">
+        <form onSubmit={handleSearch} className="flex min-w-0 flex-1 items-center">
+          <div className="relative w-full">
             <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
               <svg className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -51,15 +71,15 @@ export default function Header() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar produtores ou produtos"
-              aria-label="Buscar"
-              className="w-full rounded-full border border-neutral-200 bg-neutral-50 py-2 pl-10 pr-4 text-sm text-neutral-900 placeholder-neutral-400 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              placeholder="Buscar produtores"
+              aria-label="Buscar produtores ou produtos"
+              className="w-full rounded-full border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3 text-sm text-neutral-900 placeholder-neutral-400 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 sm:pl-10 sm:pr-4"
             />
           </div>
         </form>
 
         {/* Ações */}
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
 
           {/* Notificações */}
           <NotificationBell />
@@ -80,19 +100,20 @@ export default function Header() {
             )}
           </button>
 
-          {/* Usuário autenticado */}
+          {/* Usuário autenticado — visível em todos os tamanhos */}
           {user ? (
-            <div className="relative hidden sm:block">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-full border border-neutral-200 py-1.5 pl-1.5 pr-3 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+                className="flex items-center gap-2 rounded-full border border-neutral-200 p-1.5 transition-colors hover:bg-neutral-50 sm:py-1.5 sm:pl-1.5 sm:pr-3"
                 aria-expanded={menuOpen}
                 aria-haspopup="true"
+                aria-label="Menu do usuário"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
                   {inicial}
                 </span>
-                <span className="max-w-[6rem] truncate font-medium">
+                <span className="hidden max-w-[6rem] truncate text-sm font-medium text-neutral-700 sm:block">
                   {user.displayName ?? user.email}
                 </span>
               </button>
@@ -100,13 +121,19 @@ export default function Header() {
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-1 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
-                  onBlur={() => setMenuOpen(false)}
+                  className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-1 shadow-xl"
                 >
+                  {/* Info do usuário */}
+                  <div className="border-b border-neutral-100 px-4 py-3 sm:hidden">
+                    <p className="truncate text-sm font-semibold text-neutral-900">
+                      {user.displayName ?? 'Minha conta'}
+                    </p>
+                    <p className="truncate text-xs text-neutral-400">{user.email}</p>
+                  </div>
                   <Link
                     href="/perfil"
                     role="menuitem"
-                    className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50"
                     onClick={() => setMenuOpen(false)}
                   >
                     Meu perfil
@@ -114,7 +141,7 @@ export default function Header() {
                   <Link
                     href="/pedidos"
                     role="menuitem"
-                    className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50"
                     onClick={() => setMenuOpen(false)}
                   >
                     Meus pedidos
@@ -123,7 +150,7 @@ export default function Header() {
                   <button
                     role="menuitem"
                     onClick={handleLogout}
-                    className="block w-full px-4 py-2 text-left text-sm text-error hover:bg-red-50"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
                   >
                     Sair
                   </button>
@@ -131,20 +158,33 @@ export default function Header() {
               )}
             </div>
           ) : (
-            <div className="hidden items-center gap-2 sm:flex">
+            <>
+              {/* Mobile: ícone de pessoa que vai para /login */}
               <Link
                 href="/login"
-                className="rounded-full px-4 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+                className="rounded-full p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-brand-600 sm:hidden"
+                aria-label="Entrar na conta"
               >
-                Entrar
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </Link>
-              <Link
-                href="/cadastro"
-                className="rounded-full bg-brand-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-600"
-              >
-                Cadastrar
-              </Link>
-            </div>
+              {/* Desktop: botões Entrar + Cadastrar */}
+              <div className="hidden items-center gap-2 sm:flex">
+                <Link
+                  href="/login"
+                  className="rounded-full px-4 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+                >
+                  Entrar
+                </Link>
+                <Link
+                  href="/cadastro"
+                  className="rounded-full bg-brand-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                >
+                  Cadastrar
+                </Link>
+              </div>
+            </>
           )}
         </div>
       </div>

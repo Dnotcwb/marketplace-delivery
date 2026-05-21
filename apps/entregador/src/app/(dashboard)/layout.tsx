@@ -6,7 +6,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <EntregadorGuard>
       <div className="flex flex-col min-h-screen">
         <Topbar />
-        <main className="flex-1 bg-neutral-50 p-4">
+        {/* pb-20 no mobile garante que o conteúdo não fique atrás da bottom nav fixa */}
+        <main className="flex-1 bg-neutral-50 p-4 pb-24 sm:pb-4">
           {children}
         </main>
       </div>
