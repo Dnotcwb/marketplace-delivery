@@ -116,8 +116,8 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Foto
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  // Foto — bytes lidos imediatamente na seleção para evitar que o File expire no mobile
+  const [photoBytes, setPhotoBytes] = useState<{ data: ArrayBuffer; ext: string } | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(editing?.photoUrl ?? null)
   const [removePhoto, setRemovePhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -125,13 +125,18 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setPhotoFile(file)
-    setRemovePhoto(false)
+    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
     setPhotoPreview(URL.createObjectURL(file))
+    setRemovePhoto(false)
+    // Lê os bytes agora, antes que o File possa expirar (Android/iOS)
+    file.arrayBuffer().then((buf) => setPhotoBytes({ data: buf, ext })).catch(() => {
+      setPhotoBytes(null)
+      setError('Não foi possível ler a imagem. Tente outra foto.')
+    })
   }
 
   function handleRemovePhoto() {
-    setPhotoFile(null)
+    setPhotoBytes(null)
     setPhotoPreview(null)
     setRemovePhoto(true)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -143,10 +148,12 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   }
 
   async function uploadPhoto(productId: string): Promise<string | null> {
-    if (!photoFile) return null
-    const ext = photoFile.name.split('.').pop() ?? 'jpg'
-    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.${ext}`)
-    await uploadBytes(storageRef, photoFile)
+    if (!photoBytes) return null
+    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.${photoBytes.ext}`)
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Upload timeout — verifique sua conexão e tente novamente.')), 30_000),
+    )
+    await Promise.race([uploadBytes(storageRef, photoBytes.data), timeout])
     return getDownloadURL(storageRef)
   }
 
@@ -171,11 +178,10 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
 
       if (editing) {
         await updateProduct(produtorId, editing.id, base)
-        if (photoFile) {
+        if (photoBytes) {
           const url = await uploadPhoto(editing.id)
           if (url) await updateProduct(produtorId, editing.id, { photoUrl: url })
         } else if (removePhoto && editing.photoUrl) {
-          // Tenta deletar do Storage (ignora erro se arquivo não existir)
           try {
             const oldRef = ref(storage, editing.photoUrl)
             await deleteObject(oldRef)
@@ -184,14 +190,15 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
         }
       } else {
         const newId = await createProduct(produtorId, base)
-        if (photoFile) {
+        if (photoBytes) {
           const url = await uploadPhoto(newId)
           if (url) await updateProduct(produtorId, newId, { photoUrl: url })
         }
       }
       onClose()
-    } catch {
-      setError('Erro ao salvar. Tente novamente.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.'
+      setError(msg)
     } finally {
       setSaving(false)
     }
