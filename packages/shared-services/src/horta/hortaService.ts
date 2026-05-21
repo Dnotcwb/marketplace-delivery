@@ -26,6 +26,13 @@ export function subscribeToHortas(
   })
 }
 
+export async function listHortasAtivas(): Promise<Horta[]> {
+  const q = query(collection(firestore, COL), where('status', '==', 'active'))
+  const snap = await getDocs(q)
+  const hortas = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Horta)
+  return hortas.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+}
+
 export async function getHortaById(id: string): Promise<Horta | null> {
   const snap = await getDoc(doc(firestore, COL, id))
   if (!snap.exists()) return null

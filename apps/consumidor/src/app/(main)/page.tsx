@@ -1,8 +1,12 @@
 'use client'
 
-import { listProdutoresAprovados } from '@marketplace/shared-services'
-import type { Produtor, ProdutorCertification } from '@marketplace/shared-types'
+import {
+  listHortasAtivas,
+  listProdutoresAprovados,
+} from '@marketplace/shared-services'
+import type { Horta, Produtor, ProdutorCertification } from '@marketplace/shared-types'
 import { useEffect, useState } from 'react'
+import HortaCard from '@/components/HortaCard'
 import ProdutorCard from '@/components/ProdutorCard'
 
 const CERT_FILTERS: { value: ProdutorCertification | 'all'; label: string }[] = [
@@ -15,22 +19,43 @@ const CERT_FILTERS: { value: ProdutorCertification | 'all'; label: string }[] = 
 ]
 
 export default function HomePage() {
+  const [hortas, setHortas] = useState<Horta[]>([])
   const [produtores, setProdutores] = useState<Produtor[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(false)
   const [activeCert, setActiveCert] = useState<ProdutorCertification | 'all'>('all')
 
   useEffect(() => {
-    listProdutoresAprovados()
-      .then(setProdutores)
+    Promise.all([listHortasAtivas(), listProdutoresAprovados()])
+      .then(([h, p]) => {
+        setHortas(h)
+        setProdutores(p)
+      })
       .catch(() => setErro(true))
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered =
+  // Produtores sem horta aparecem individualmente
+  const soloProdutores = produtores.filter((p) => !p.hortaId)
+
+  function getProdutoresForHorta(hortaId: string): Produtor[] {
+    return produtores.filter((p) => p.hortaId === hortaId)
+  }
+
+  // Filtragem por certificação
+  const filteredHortas =
     activeCert === 'all'
-      ? produtores
-      : produtores.filter((p) => p.certifications.includes(activeCert))
+      ? hortas
+      : hortas.filter((h) =>
+          getProdutoresForHorta(h.id).some((p) => p.certifications.includes(activeCert)),
+        )
+
+  const filteredSolo =
+    activeCert === 'all'
+      ? soloProdutores
+      : soloProdutores.filter((p) => p.certifications.includes(activeCert))
+
+  const totalResults = filteredHortas.length + filteredSolo.length
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -63,14 +88,10 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Grid de produtores */}
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-56 animate-pulse rounded-2xl bg-neutral-200"
-            />
+            <div key={i} className="h-56 animate-pulse rounded-2xl bg-neutral-200" />
           ))}
         </div>
       ) : erro ? (
@@ -89,7 +110,7 @@ export default function HomePage() {
             Recarregar
           </button>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : totalResults === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <span className="text-5xl">🌱</span>
           <p className="text-lg font-semibold text-neutral-700">
@@ -107,10 +128,42 @@ export default function HomePage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
-            <ProdutorCard key={p.id} produtor={p} />
-          ))}
+        <div className="space-y-8">
+          {/* Hortas */}
+          {filteredHortas.length > 0 && (
+            <section>
+              {(filteredSolo.length > 0 || activeCert !== 'all') && (
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+                  Hortas
+                </h2>
+              )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredHortas.map((h) => (
+                  <HortaCard
+                    key={h.id}
+                    horta={h}
+                    produtores={getProdutoresForHorta(h.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Produtores individuais (sem horta) */}
+          {filteredSolo.length > 0 && (
+            <section>
+              {filteredHortas.length > 0 && (
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+                  Produtores independentes
+                </h2>
+              )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredSolo.map((p) => (
+                  <ProdutorCard key={p.id} produtor={p} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>

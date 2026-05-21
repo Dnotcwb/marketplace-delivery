@@ -11,6 +11,7 @@ import type { CartHorta } from '@marketplace/shared-services'
 import type { Category, Horta, Product, Produtor, ProdutorCertification } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -158,6 +159,30 @@ export default function ProdutorSlugPage() {
 
   return (
     <div>
+      {/* Banner de horta — exibido quando o produtor pertence a uma horta */}
+      {horta && (
+        <div className="border-b border-brand-100 bg-brand-50 px-4 py-3">
+          <p className="mx-auto max-w-4xl text-sm text-brand-700">
+            <svg
+              className="mr-1.5 inline h-4 w-4 align-text-bottom"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Este produtor faz parte da{' '}
+            <Link
+              href={`/horta/${horta.slug}`}
+              className="font-semibold underline underline-offset-2 hover:text-brand-900"
+            >
+              Horta {horta.name}
+            </Link>
+            {' '}— compre de vários produtores em um só pedido.
+          </p>
+        </div>
+      )}
+
       {/* Modal de conflito de produtor */}
       {conflictProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
