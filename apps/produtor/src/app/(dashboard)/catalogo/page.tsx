@@ -1,6 +1,6 @@
 'use client'
 
-import { functions, storage } from '@marketplace/shared-firebase'
+import { storage } from '@marketplace/shared-firebase'
 import {
   createCategory,
   createProduct,
@@ -14,8 +14,7 @@ import {
 } from '@marketplace/shared-services'
 import type { Category, Product, ProductUnit } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { deleteObject, ref } from 'firebase/storage'
-import { httpsCallable } from 'firebase/functions'
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
@@ -42,15 +41,6 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promi
     }
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar imagem')) }
     img.src = url
-  })
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
   })
 }
 
@@ -183,10 +173,9 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   async function uploadPhoto(productId: string): Promise<string | null> {
     if (!photoFile) return null
     const compressed = await compressImage(photoFile)
-    const imageBase64 = await blobToBase64(compressed)
-    const fn = httpsCallable<unknown, { photoUrl: string }>(functions, 'uploadProductPhoto')
-    const result = await fn({ produtorId, productId, imageBase64, contentType: 'image/jpeg' })
-    return result.data.photoUrl
+    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.jpg`)
+    await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
+    return getDownloadURL(storageRef)
   }
 
   async function handleSubmit(e: React.FormEvent) {
