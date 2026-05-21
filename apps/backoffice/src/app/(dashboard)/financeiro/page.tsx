@@ -85,20 +85,20 @@ export default function FinanceiroPage() {
       </div>
 
       {/* KPI total */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="mb-1 text-2xl">💰</div>
-          <p className="text-2xl font-bold text-neutral-900">{loading ? '—' : formatCurrency(totalGmv)}</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-1 text-xl sm:text-2xl">💰</div>
+          <p className="text-lg sm:text-2xl font-bold text-neutral-900 truncate">{loading ? '—' : formatCurrency(totalGmv)}</p>
           <p className="mt-0.5 text-xs text-neutral-500">GMV total no período</p>
         </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="mb-1 text-2xl">📦</div>
-          <p className="text-2xl font-bold text-neutral-900">{loading ? '—' : filtered.length}</p>
+        <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-1 text-xl sm:text-2xl">📦</div>
+          <p className="text-lg sm:text-2xl font-bold text-neutral-900 truncate">{loading ? '—' : filtered.length}</p>
           <p className="mt-0.5 text-xs text-neutral-500">Pedidos concluídos</p>
         </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="mb-1 text-2xl">🌿</div>
-          <p className="text-2xl font-bold text-neutral-900">{loading ? '—' : byProdutor.length}</p>
+        <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm col-span-2 lg:col-span-1">
+          <div className="mb-1 text-xl sm:text-2xl">🌿</div>
+          <p className="text-lg sm:text-2xl font-bold text-neutral-900 truncate">{loading ? '—' : byProdutor.length}</p>
           <p className="mt-0.5 text-xs text-neutral-500">Produtores com vendas</p>
         </div>
       </div>

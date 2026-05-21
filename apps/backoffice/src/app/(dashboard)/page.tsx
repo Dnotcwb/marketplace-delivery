@@ -69,14 +69,14 @@ function KpiCard({
   href?: string
 }) {
   const cls = [
-    'rounded-xl border p-5 shadow-sm',
+    'rounded-xl border p-3 sm:p-5 shadow-sm',
     accent ? 'border-amber-200 bg-amber-50' : 'border-neutral-200 bg-white',
   ].join(' ')
 
   const inner = (
     <>
-      <div className="mb-1 text-2xl">{icon}</div>
-      <p className={['text-2xl font-bold', accent ? 'text-amber-700' : 'text-neutral-900'].join(' ')}>
+      <div className="mb-1 text-xl sm:text-2xl">{icon}</div>
+      <p className={['text-lg sm:text-2xl font-bold truncate', accent ? 'text-amber-700' : 'text-neutral-900'].join(' ')}>
         {value}
       </p>
       <p className={['mt-0.5 text-xs', accent ? 'text-amber-600' : 'text-neutral-500'].join(' ')}>
@@ -190,7 +190,7 @@ export default function AdminDashboardPage() {
       {/* KPIs — Hoje */}
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-400">Hoje</p>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             icon="📦"
             label="Pedidos hoje"
@@ -221,7 +221,7 @@ export default function AdminDashboardPage() {
       {/* KPIs — 30 dias */}
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-400">Últimos 30 dias</p>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             icon="🛒"
             label="Total de pedidos"

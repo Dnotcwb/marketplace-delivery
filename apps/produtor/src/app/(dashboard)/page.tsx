@@ -172,14 +172,14 @@ export default function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm"
           >
-            <div className="mb-1 text-2xl">{kpi.icon}</div>
-            <p className="text-2xl font-bold text-neutral-900">{kpi.value}</p>
+            <div className="mb-1 text-xl sm:text-2xl">{kpi.icon}</div>
+            <p className="text-lg sm:text-2xl font-bold text-neutral-900 truncate">{kpi.value}</p>
             <p className="mt-0.5 text-xs text-neutral-500">{kpi.label}</p>
             {kpi.sub && (
               <p className="mt-1 text-xs font-semibold text-brand-600">{kpi.sub}</p>

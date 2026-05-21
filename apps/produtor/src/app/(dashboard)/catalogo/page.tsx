@@ -365,9 +365,9 @@ export default function CatalogoPage() {
         />
       )}
 
-      <div className="flex h-full gap-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:h-full sm:gap-6">
         {/* ── Coluna de categorias ── */}
-        <aside className="w-56 flex-shrink-0">
+        <aside className="sm:w-56 sm:flex-shrink-0">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-neutral-700">Categorias</h2>
             <button
@@ -381,12 +381,12 @@ export default function CatalogoPage() {
             </button>
           </div>
 
-          <ul className="space-y-1">
+          <ul className="flex gap-2 overflow-x-auto pb-1 sm:block sm:space-y-1 sm:overflow-visible sm:pb-0">
             {categories.map((cat) => (
               <li
                 key={cat.id}
                 className={[
-                  'group flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
+                  'group flex-shrink-0 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors sm:flex-shrink',
                   activeCategoryId === cat.id
                     ? 'bg-brand-500 text-white'
                     : 'text-neutral-700 hover:bg-neutral-100',
@@ -439,7 +439,7 @@ export default function CatalogoPage() {
         </aside>
 
         {/* ── Área de produtos ── */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 sm:overflow-hidden">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-neutral-700">
               {activeCategoryId
@@ -479,18 +479,18 @@ export default function CatalogoPage() {
                 <div
                   key={product.id}
                   className={[
-                    'flex items-center gap-4 rounded-xl border bg-white p-3 shadow-sm transition-colors',
+                    'flex items-center gap-3 rounded-xl border bg-white p-3 shadow-sm transition-colors',
                     product.available ? 'border-neutral-200' : 'border-neutral-100 opacity-60',
                   ].join(' ')}
                 >
                   {/* Foto */}
-                  <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
                     {product.photoUrl ? (
                       <Image
                         src={product.photoUrl}
                         alt={product.name}
-                        width={56}
-                        height={56}
+                        width={48}
+                        height={48}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -527,7 +527,7 @@ export default function CatalogoPage() {
                   </div>
 
                   {/* Ações */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       type="button"
                       role="switch"

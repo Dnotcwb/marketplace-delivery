@@ -659,28 +659,30 @@ export default function PedidosPage() {
       {/* ── Conteúdo principal (oculto na impressão) ── */}
       <div className="print:hidden flex flex-col gap-4 h-full">
         {/* Cabeçalho */}
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-neutral-900">Pedidos</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Pedidos</h1>
           {activeOrders.length > 0 && (
             <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-bold text-white">
               {activeOrders.length} ativo{activeOrders.length !== 1 ? 's' : ''}
             </span>
           )}
-          {!audioUnlocked && (
-            <span className="ml-auto rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700">
-              Clique em qualquer lugar para ativar alertas sonoros
-            </span>
-          )}
-          <Link
-            href="/pedidos/historico"
-            className={['ml-auto text-sm font-medium text-neutral-500 hover:text-brand-600', audioUnlocked ? '' : 'ml-2'].join(' ')}
-          >
-            Ver histórico →
-          </Link>
+          <div className="ml-auto flex items-center gap-2">
+            {!audioUnlocked && (
+              <span className="hidden sm:inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700">
+                Clique para ativar alertas sonoros
+              </span>
+            )}
+            <Link
+              href="/pedidos/historico"
+              className="text-sm font-medium text-neutral-500 hover:text-brand-600 whitespace-nowrap"
+            >
+              Ver histórico →
+            </Link>
+          </div>
         </div>
 
         {/* Kanban */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 flex-1 min-h-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 flex-1 min-h-0">
           {COLUMNS.map((col) => (
             <KanbanColumnView
               key={col.key}
