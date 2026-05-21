@@ -150,6 +150,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ==================== MP TOKENS ====================
+    // Tokens MP dos produtores — somente Cloud Functions (admin SDK) acessam.
+    match /mp_tokens/{produtorId} {
+      allow read, write: if false;
+    }
+
     // ==================== PEDIDOS FILHOS ====================
     match /pedidos_filhos/{filhoId} {
       allow read: if isAdmin()

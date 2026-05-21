@@ -274,11 +274,31 @@ export const createOrder = onCall(
       console.log('Pedidos filhos criados')
 
       // 7. Integração Mercado Pago
-      const mpToken = process.env['MERCADO_PAGO_ACCESS_TOKEN']
+      const platformToken = process.env['MERCADO_PAGO_ACCESS_TOKEN']
       const skipMp = process.env['SKIP_MP'] === 'true'
 
-      if (!mpToken || skipMp) {
+      if (!platformToken || skipMp) {
         return { orderId, paymentMethod: data.paymentMethod, total: totalInCents, devMode: true }
+      }
+
+      // Split direto ao produtor quando:
+      // (a) pedido de produtor único E
+      // (b) produtor tem token MP cadastrado E
+      // (c) plataforma tem MP_CLIENT_ID (app Marketplace configurado)
+      let mpToken = platformToken
+      let marketplaceFeeAmount: number | undefined
+      const mpClientId = process.env['MP_CLIENT_ID']
+
+      if (produtorGroups.size === 1 && mpClientId) {
+        const singleProdutorId = [...produtorGroups.keys()][0]!
+        const mpTokenSnap = await db.collection('mp_tokens').doc(singleProdutorId).get()
+        const producerToken = mpTokenSnap.data()?.['accessToken'] as string | undefined
+        if (producerToken) {
+          mpToken = producerToken
+          const commission = (horta['commission'] as number) ?? 0.10
+          marketplaceFeeAmount = Math.round(totalInCents * commission) / 100
+          console.log('Usando token do produtor — split direto, taxa plataforma:', marketplaceFeeAmount)
+        }
       }
 
       const client = new MercadoPagoConfig({ accessToken: mpToken })
@@ -295,6 +315,7 @@ export const createOrder = onCall(
             payer: { email: payerEmail },
             external_reference: orderId,
             notification_url: WEBHOOK_URL,
+            ...(marketplaceFeeAmount !== undefined && { marketplace_fee: marketplaceFeeAmount }),
           },
         })
 
@@ -328,6 +349,7 @@ export const createOrder = onCall(
             })),
             external_reference: orderId,
             notification_url: WEBHOOK_URL,
+            ...(marketplaceFeeAmount !== undefined && { marketplace_fee: marketplaceFeeAmount }),
             back_urls: {
               success: `https://consumidor.netlify.app/pedido/${orderId}`,
               failure: `https://consumidor.netlify.app/checkout`,

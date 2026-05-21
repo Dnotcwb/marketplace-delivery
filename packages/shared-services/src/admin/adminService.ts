@@ -17,3 +17,26 @@ const setUserRoleFn = httpsCallable<SetRoleData, { success: boolean }>(
 export async function callSetUserRole(data: SetRoleData): Promise<void> {
   await setUserRoleFn(data)
 }
+
+const setProducerMpTokenFn = httpsCallable<
+  { produtorId: string; accessToken: string },
+  { ok: boolean }
+>(functions, 'setProducerMpToken')
+
+const removeProducerMpTokenFn = httpsCallable<
+  { produtorId: string },
+  { ok: boolean }
+>(functions, 'removeProducerMpToken')
+
+/** Armazena o access_token MP de um produtor (somente admins). */
+export async function callSetProducerMpToken(
+  produtorId: string,
+  accessToken: string,
+): Promise<void> {
+  await setProducerMpTokenFn({ produtorId, accessToken })
+}
+
+/** Remove o token MP de um produtor (somente admins). */
+export async function callRemoveProducerMpToken(produtorId: string): Promise<void> {
+  await removeProducerMpTokenFn({ produtorId })
+}

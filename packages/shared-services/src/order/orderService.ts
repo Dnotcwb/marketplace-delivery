@@ -2,10 +2,14 @@ import { firestore } from '@marketplace/shared-firebase'
 import type { Order, PedidoFilho } from '@marketplace/shared-types'
 import {
   doc,
+  getDoc,
+  limit,
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
   collection,
+  updateDoc,
   where,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -90,4 +94,39 @@ export function subscribeToPedidoFilhosByPai(
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PedidoFilho))
   })
+}
+
+/** Listener em todos os PedidoFilho (backoffice — painel de repassos). */
+export function subscribeToAllPedidosFilhos(
+  callback: (filhos: PedidoFilho[]) => void,
+  maxCount = 1000,
+): Unsubscribe {
+  const q = query(
+    collection(firestore, FILHOS_COL),
+    orderBy('createdAt', 'desc'),
+    limit(maxCount),
+  )
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PedidoFilho))
+  })
+}
+
+/** Busca um PedidoFilho por ID. */
+export async function getPedidoFilhoById(filhoId: string): Promise<PedidoFilho | null> {
+  const snap = await getDoc(doc(firestore, FILHOS_COL, filhoId))
+  if (!snap.exists()) return null
+  return { id: snap.id, ...snap.data() } as PedidoFilho
+}
+
+/** Marca um PedidoFilho como repasse pago (backoffice). */
+export async function marcarRepassePago(filhoId: string): Promise<void> {
+  await updateDoc(doc(firestore, FILHOS_COL, filhoId), {
+    repassePago: true,
+    repassePagoAt: serverTimestamp(),
+  })
+}
+
+/** Marca todos os PedidoFilhos de um produtor como repasse pago. */
+export async function marcarTodosRepassesPagos(filhoIds: string[]): Promise<void> {
+  await Promise.all(filhoIds.map((id) => marcarRepassePago(id)))
 }

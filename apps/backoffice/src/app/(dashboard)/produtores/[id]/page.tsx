@@ -1,6 +1,8 @@
 'use client'
 
 import {
+  callRemoveProducerMpToken,
+  callSetProducerMpToken,
   callSetUserRole,
   getProdutorById,
   setProdutorStatus,
@@ -56,6 +58,10 @@ export default function ProdutorDetailPage() {
   const [commissionInput, setCommissionInput] = useState('')
   const [savingCommission, setSavingCommission] = useState(false)
   const [commissionStatus, setCommissionStatus] = useState<'idle' | 'ok' | 'err'>('idle')
+
+  const [mpTokenInput, setMpTokenInput] = useState('')
+  const [savingMp, setSavingMp] = useState(false)
+  const [mpStatus, setMpStatus] = useState<'idle' | 'ok' | 'err' | 'removing'>('idle')
 
   useEffect(() => {
     if (!id) return
@@ -124,6 +130,38 @@ export default function ProdutorDetailPage() {
       setError('Erro ao alterar status. Tente novamente.')
     } finally {
       setActing(false)
+    }
+  }
+
+  async function handleSaveMpToken() {
+    if (!produtor || !mpTokenInput.trim()) return
+    setSavingMp(true)
+    setMpStatus('idle')
+    try {
+      await callSetProducerMpToken(produtor.id, mpTokenInput.trim())
+      setProdutor((p) => p ? { ...p, mpConnected: true } : p)
+      setMpTokenInput('')
+      setMpStatus('ok')
+      setTimeout(() => setMpStatus('idle'), 4000)
+    } catch {
+      setMpStatus('err')
+    } finally {
+      setSavingMp(false)
+    }
+  }
+
+  async function handleRemoveMpToken() {
+    if (!produtor) return
+    setSavingMp(true)
+    setMpStatus('removing')
+    try {
+      await callRemoveProducerMpToken(produtor.id)
+      setProdutor((p) => p ? { ...p, mpConnected: false } : p)
+      setMpStatus('idle')
+    } catch {
+      setMpStatus('err')
+    } finally {
+      setSavingMp(false)
     }
   }
 
@@ -423,6 +461,62 @@ export default function ProdutorDetailPage() {
             {commissionStatus === 'err' && <span className="text-sm text-red-500">Erro ao salvar.</span>}
           </div>
           <p className="mt-1 text-xs text-neutral-400">Comissão atual: {produtor.commission}%</p>
+        </div>
+
+        {/* Mercado Pago */}
+        <div className="mt-5 border-t border-neutral-100 pt-5">
+          <div className="mb-2 flex items-center gap-2">
+            <p className="text-sm font-semibold text-neutral-700">Mercado Pago</p>
+            {produtor.mpConnected ? (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                Conectado
+              </span>
+            ) : (
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-500">
+                Não configurado
+              </span>
+            )}
+          </div>
+          <p className="mb-3 text-xs text-neutral-400">
+            Quando configurado, pedidos de produtor único usam a conta MP do produtor
+            (split direto, comissão retida automaticamente).
+            Requer app Mercado Pago Marketplace habilitado na plataforma.
+          </p>
+
+          {produtor.mpConnected ? (
+            <button
+              onClick={handleRemoveMpToken}
+              disabled={savingMp}
+              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {mpStatus === 'removing' ? 'Removendo…' : 'Desconectar conta MP'}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="password"
+                  placeholder="Access token do produtor (APP_USR-…)"
+                  value={mpTokenInput}
+                  onChange={(e) => setMpTokenInput(e.target.value)}
+                  className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+                <button
+                  onClick={handleSaveMpToken}
+                  disabled={savingMp || !mpTokenInput.trim()}
+                  className="rounded-lg bg-[#009ee3] px-4 py-2 text-sm font-semibold text-white hover:bg-[#008ccb] disabled:opacity-50"
+                >
+                  {savingMp ? 'Salvando…' : 'Conectar'}
+                </button>
+              </div>
+              {mpStatus === 'ok' && (
+                <p className="text-sm text-emerald-600">Token salvo. Conta conectada!</p>
+              )}
+              {mpStatus === 'err' && (
+                <p className="text-sm text-red-500">Erro ao salvar o token. Tente novamente.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

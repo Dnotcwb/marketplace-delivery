@@ -101,6 +101,8 @@ export interface Produtor {
   status: ProdutorStatus
   /** % de comissão da plataforma — definida pelo admin */
   commission: number
+  /** True quando o admin registrou a conta Mercado Pago deste produtor */
+  mpConnected?: boolean
   approvedAt?: Timestamp
   approvedBy?: string
   rejectedAt?: Timestamp

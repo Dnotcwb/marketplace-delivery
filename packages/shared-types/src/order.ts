@@ -164,6 +164,9 @@ export interface PedidoFilho {
   /** Valor a repassar ao produtor, em centavos */
   valorRepasseInCents: number
   items: OrderItem[]
+  /** Controle de repasse financeiro */
+  repassePago?: boolean
+  repassePagoAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
 }
