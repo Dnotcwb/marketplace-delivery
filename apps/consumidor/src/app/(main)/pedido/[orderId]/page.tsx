@@ -5,8 +5,7 @@ import { useAuth } from '@marketplace/shared-services'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { doc, onSnapshot } from 'firebase/firestore'
-import type { Timestamp } from 'firebase/firestore'
+import { arrayUnion, doc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -51,6 +50,9 @@ export default function PedidoPage() {
   const [order, setOrder] = useState<Order | null | undefined>(undefined)
   const [firestoreError, setFirestoreError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!orderId || authLoading) return
@@ -129,6 +131,27 @@ export default function PedidoPage() {
   const isPix = order.payment?.method === 'pix'
   const pixPending = isPix && order.payment?.status === 'pending'
 
+  const canCancel = order !== null && order !== undefined
+    && ['pending', 'confirmed'].includes(order.status)
+
+  async function handleCancel() {
+    if (!order) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await updateDoc(doc(firestore, 'orders', order.id), {
+        status: 'cancelled',
+        statusHistory: arrayUnion({ status: 'cancelled', timestamp: Timestamp.now() }),
+      })
+      setShowCancelModal(false)
+    } catch (err) {
+      console.error('cancel error:', err)
+      setCancelError('Não foi possível cancelar. Tente novamente ou entre em contato com a horta.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   function handleCopyPix() {
     const code = order?.payment?.pixQrCode
     if (!code) return
@@ -140,6 +163,53 @@ export default function PedidoPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+
+      {/* Modal de confirmação de cancelamento */}
+      {showCancelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => !cancelling && setShowCancelModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h2 className="mb-1 text-lg font-bold text-neutral-900">Cancelar pedido?</h2>
+            <p className="mb-1 text-sm text-neutral-500">
+              Tem certeza que deseja cancelar o pedido{' '}
+              <span className="font-mono font-semibold">#{order.id.slice(0, 8).toUpperCase()}</span>?
+            </p>
+            <p className="mb-5 text-xs text-neutral-400">
+              Esta ação não pode ser desfeita. Se o pagamento foi confirmado, entre em contato com a horta para o reembolso.
+            </p>
+            {cancelError && (
+              <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{cancelError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                className="flex-1 rounded-xl border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Manter pedido
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelando…' : 'Confirmar cancelamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cabeçalho */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -318,6 +388,20 @@ export default function PedidoPage() {
           </div>
         </div>
       </div>
+
+      {canCancel && (
+        <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-center">
+          <p className="mb-3 text-sm text-red-600">
+            Você pode cancelar este pedido enquanto ele ainda não foi aceito pela horta.
+          </p>
+          <button
+            onClick={() => setShowCancelModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+          >
+            Cancelar pedido
+          </button>
+        </div>
+      )}
 
       <div className="text-center">
         <Link
