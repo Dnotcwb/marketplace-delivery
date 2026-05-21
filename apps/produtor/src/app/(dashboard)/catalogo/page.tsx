@@ -116,29 +116,27 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Foto — bytes lidos imediatamente na seleção para evitar que o File expire no mobile
-  const [photoBytes, setPhotoBytes] = useState<{ data: ArrayBuffer; ext: string } | null>(null)
+  // Foto — guarda o File original; content-type é passado explicitamente no upload
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(editing?.photoUrl ?? null)
   const [removePhoto, setRemovePhoto] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
-    setPhotoPreview(URL.createObjectURL(file))
+    setPhotoFile(file)
     setRemovePhoto(false)
-    // Lê os bytes agora, antes que o File possa expirar (Android/iOS)
-    file.arrayBuffer().then((buf) => setPhotoBytes({ data: buf, ext })).catch(() => {
-      setPhotoBytes(null)
-      setError('Não foi possível ler a imagem. Tente outra foto.')
-    })
+    setUploadError('')
+    setPhotoPreview(URL.createObjectURL(file))
   }
 
   function handleRemovePhoto() {
-    setPhotoBytes(null)
+    setPhotoFile(null)
     setPhotoPreview(null)
     setRemovePhoto(true)
+    setUploadError('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -148,12 +146,11 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   }
 
   async function uploadPhoto(productId: string): Promise<string | null> {
-    if (!photoBytes) return null
-    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.${photoBytes.ext}`)
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Upload timeout — verifique sua conexão e tente novamente.')), 30_000),
-    )
-    await Promise.race([uploadBytes(storageRef, photoBytes.data), timeout])
+    if (!photoFile) return null
+    const ext = (photoFile.name.split('.').pop() ?? 'jpg').toLowerCase()
+    const contentType = photoFile.type || `image/${ext}`
+    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.${ext}`)
+    await uploadBytes(storageRef, photoFile, { contentType })
     return getDownloadURL(storageRef)
   }
 
@@ -164,6 +161,7 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
     if (priceInCents() <= 0) { setError('Preço inválido'); return }
     setSaving(true)
     setError('')
+    setUploadError('')
     try {
       const base = {
         name: name.trim(),
@@ -176,25 +174,38 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
         order: editing?.order ?? 0,
       }
 
+      // 1. Salva os dados do produto primeiro (sempre)
+      let productId: string
       if (editing) {
         await updateProduct(produtorId, editing.id, base)
-        if (photoBytes) {
-          const url = await uploadPhoto(editing.id)
-          if (url) await updateProduct(produtorId, editing.id, { photoUrl: url })
-        } else if (removePhoto && editing.photoUrl) {
-          try {
-            const oldRef = ref(storage, editing.photoUrl)
-            await deleteObject(oldRef)
-          } catch { /* já deletado ou URL externa */ }
-          await updateProduct(produtorId, editing.id, { photoUrl: '' })
-        }
+        productId = editing.id
       } else {
-        const newId = await createProduct(produtorId, base)
-        if (photoBytes) {
-          const url = await uploadPhoto(newId)
-          if (url) await updateProduct(produtorId, newId, { photoUrl: url })
-        }
+        productId = await createProduct(produtorId, base)
       }
+
+      // 2. Upload da foto separado — falha não impede o save
+      if (photoFile) {
+        try {
+          const url = await uploadPhoto(productId)
+          if (url) await updateProduct(produtorId, productId, { photoUrl: url })
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : ''
+          const code = (uploadErr as { code?: string }).code ?? ''
+          if (code === 'storage/unauthorized') {
+            setUploadError('Sem permissão para enviar foto. Contacte o suporte.')
+          } else {
+            setUploadError(`Foto não enviada (${code || msg || 'erro de rede'}). O produto foi salvo sem foto — edite-o para tentar novamente.`)
+          }
+          setSaving(false)
+          return // Mantém o modal aberto com a mensagem
+        }
+      } else if (removePhoto && editing?.photoUrl) {
+        try {
+          await deleteObject(ref(storage, editing.photoUrl))
+        } catch { /* já removido */ }
+        await updateProduct(produtorId, productId, { photoUrl: '' })
+      }
+
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.'
@@ -342,6 +353,7 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
           </label>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
+          {uploadError && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{uploadError}</p>}
 
           <div className="flex justify-end gap-2 pt-1">
             <button
