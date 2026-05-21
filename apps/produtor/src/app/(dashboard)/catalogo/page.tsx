@@ -172,9 +172,28 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
 
   async function uploadPhoto(productId: string): Promise<string | null> {
     if (!photoFile) return null
-    const compressed = await compressImage(photoFile)
+
+    // Comprime no canvas (8 s de timeout); se travar, usa o arquivo original
+    let blob: Blob = photoFile
+    try {
+      blob = await Promise.race([
+        compressImage(photoFile),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('compress-timeout')), 8_000)
+        ),
+      ])
+    } catch { /* usa original */ }
+
     const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.jpg`)
-    await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
+    await Promise.race([
+      uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
+      new Promise<never>((_, rej) =>
+        setTimeout(
+          () => rej(Object.assign(new Error('Tempo esgotado (30 s). Verifique a conexão ou tente uma foto menor.'), { code: 'upload/timeout' })),
+          30_000
+        )
+      ),
+    ])
     return getDownloadURL(storageRef)
   }
 
@@ -213,13 +232,10 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
           const url = await uploadPhoto(productId)
           if (url) await updateProduct(produtorId, productId, { photoUrl: url })
         } catch (uploadErr) {
-          const msg = uploadErr instanceof Error ? uploadErr.message : ''
           const code = (uploadErr as { code?: string }).code ?? ''
-          if (code === 'storage/unauthorized') {
-            setUploadError('Sem permissão para enviar foto. Contacte o suporte.')
-          } else {
-            setUploadError(`Foto não enviada (${code || msg || 'erro de rede'}). O produto foi salvo sem foto — edite-o para tentar novamente.`)
-          }
+          const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr)
+          console.error('uploadPhoto error:', code, msg, uploadErr)
+          setUploadError(`Foto não enviada [${code || 'sem código'}]: ${msg}. O produto foi salvo — edite-o para tentar novamente.`)
           setSaving(false)
           return // Mantém o modal aberto com a mensagem
         }
