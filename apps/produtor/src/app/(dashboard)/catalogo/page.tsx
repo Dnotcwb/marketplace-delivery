@@ -1,6 +1,5 @@
 'use client'
 
-import { functions, storage } from '@marketplace/shared-firebase'
 import {
   createCategory,
   createProduct,
@@ -14,8 +13,6 @@ import {
 } from '@marketplace/shared-services'
 import type { Category, Product, ProductUnit } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { httpsCallable } from 'firebase/functions'
-import { deleteObject, ref } from 'firebase/storage'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
@@ -42,15 +39,6 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promi
     }
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar imagem')) }
     img.src = url
-  })
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
   })
 }
 
@@ -183,19 +171,41 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   async function uploadPhoto(productId: string): Promise<string | null> {
     if (!photoFile) return null
 
-    // Comprime no canvas (8 s de timeout); se travar, usa o arquivo original
     let blob: Blob = photoFile
     try {
       blob = await Promise.race([
         compressImage(photoFile),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error('compress-timeout')), 8_000)),
       ])
-    } catch { /* usa original */ }
+    } catch { /* usa arquivo original */ }
 
-    const imageBase64 = await blobToBase64(blob)
-    const fn = httpsCallable<unknown, { photoUrl: string }>(functions, 'uploadProductPhoto')
-    const result = await fn({ produtorId, productId, imageBase64, contentType: 'image/jpeg' })
-    return result.data.photoUrl
+    const cloudName = process.env['NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME'] ?? ''
+    const preset = process.env['NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET'] ?? ''
+    if (!cloudName || !preset) throw Object.assign(
+      new Error('Cloudinary não configurado'),
+      { code: 'config/missing' },
+    )
+
+    const form = new FormData()
+    form.append('file', new File([blob], 'photo.jpg', { type: 'image/jpeg' }))
+    form.append('upload_preset', preset)
+    form.append('folder', `marketplace/produtores/${produtorId}/products/${productId}`)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 30_000)
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST', body: form, signal: controller.signal,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+        throw new Error(err.error?.message ?? `HTTP ${res.status}`)
+      }
+      const data = await res.json() as { secure_url: string }
+      return data.secure_url
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -241,9 +251,6 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
           return // Mantém o modal aberto com a mensagem
         }
       } else if (removePhoto && editing?.photoUrl) {
-        try {
-          await deleteObject(ref(storage, editing.photoUrl))
-        } catch { /* já removido */ }
         await updateProduct(produtorId, productId, { photoUrl: '' })
       }
 
