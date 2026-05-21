@@ -1,5 +1,6 @@
 'use client'
 
+import { storage } from '@marketplace/shared-firebase'
 import {
   createCategory,
   createProduct,
@@ -13,8 +14,9 @@ import {
 } from '@marketplace/shared-services'
 import type { Category, Product, ProductUnit } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
 
 // ── Modal de categoria ────────────────────────────────────────────────────────
@@ -114,9 +116,38 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Foto
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(editing?.photoUrl ?? null)
+  const [removePhoto, setRemovePhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setRemovePhoto(false)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  function handleRemovePhoto() {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setRemovePhoto(true)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   function priceInCents(): number {
     const num = parseFloat(priceStr.replace(',', '.'))
     return Math.round((isNaN(num) ? 0 : num) * 100)
+  }
+
+  async function uploadPhoto(productId: string): Promise<string | null> {
+    if (!photoFile) return null
+    const ext = photoFile.name.split('.').pop() ?? 'jpg'
+    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.${ext}`)
+    await uploadBytes(storageRef, photoFile)
+    return getDownloadURL(storageRef)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -127,7 +158,7 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
     setSaving(true)
     setError('')
     try {
-      const payload = {
+      const base = {
         name: name.trim(),
         description: description.trim(),
         priceInCents: priceInCents(),
@@ -137,10 +168,26 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
         available: editing?.available ?? true,
         order: editing?.order ?? 0,
       }
+
       if (editing) {
-        await updateProduct(produtorId, editing.id, payload)
+        await updateProduct(produtorId, editing.id, base)
+        if (photoFile) {
+          const url = await uploadPhoto(editing.id)
+          if (url) await updateProduct(produtorId, editing.id, { photoUrl: url })
+        } else if (removePhoto && editing.photoUrl) {
+          // Tenta deletar do Storage (ignora erro se arquivo não existir)
+          try {
+            const oldRef = ref(storage, editing.photoUrl)
+            await deleteObject(oldRef)
+          } catch { /* já deletado ou URL externa */ }
+          await updateProduct(produtorId, editing.id, { photoUrl: '' })
+        }
       } else {
-        await createProduct(produtorId, payload)
+        const newId = await createProduct(produtorId, base)
+        if (photoFile) {
+          const url = await uploadPhoto(newId)
+          if (url) await updateProduct(produtorId, newId, { photoUrl: url })
+        }
       }
       onClose()
     } catch {
@@ -155,11 +202,56 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <h2 className="mb-4 text-lg font-bold text-neutral-900">
           {editing ? 'Editar produto' : 'Novo produto'}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Foto do produto */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">Foto</label>
+            {photoPreview ? (
+              <div className="relative h-40 w-full overflow-hidden rounded-xl bg-neutral-100">
+                <Image
+                  src={photoPreview}
+                  alt="Preview"
+                  fill
+                  className="object-cover"
+                  unoptimized={photoPreview.startsWith('blob:')}
+                />
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  aria-label="Remover foto"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-400 hover:border-brand-400 hover:text-brand-500"
+              >
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs">Toque para adicionar foto</span>
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-neutral-700">Nome *</label>
             <input
