@@ -1,22 +1,37 @@
 import * as admin from 'firebase-admin'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { randomUUID } from 'crypto'
-import { GoogleAuth } from 'google-auth-library'
 
-// Buckets .firebasestorage.app só existem na Firebase Storage API —
-// a GCS JSON API (storage.googleapis.com) retorna 404 para eles.
-// Usamos a Firebase Storage REST API com token OAuth2 do service account.
+// Buckets .firebasestorage.app só aceitam Firebase Auth ID tokens — não aceitam
+// tokens OAuth2 de service accounts nem a GCS API. Criamos um custom token com
+// role=admin e o trocamos por um ID token via Firebase Auth REST API.
 const BUCKET = 'marketplace-delivery-dev.firebasestorage.app'
 
-const gAuth = new GoogleAuth({
-  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-})
+async function getFirebaseIdToken(): Promise<string> {
+  const customToken = await admin.auth().createCustomToken('cloud-function-uploader', {
+    role: 'admin',
+  })
 
-async function getAccessToken(): Promise<string> {
-  const client = await gAuth.getClient()
-  const res = await client.getAccessToken()
-  if (!res.token) throw new Error('Não foi possível obter access token')
-  return res.token
+  const apiKey = process.env['FIREBASE_API_KEY']
+  if (!apiKey) throw new Error('Variável FIREBASE_API_KEY não configurada nas Functions')
+
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+    },
+  )
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Falha ao obter ID token (${res.status}): ${body}`)
+  }
+
+  const data = await res.json() as { idToken?: string }
+  if (!data.idToken) throw new Error('Firebase Auth não retornou idToken')
+  return data.idToken
 }
 
 export const uploadProductPhoto = onCall(
@@ -68,9 +83,8 @@ export const uploadProductPhoto = onCall(
     console.log(`uploadProductPhoto: bucket=${BUCKET} path=${storagePath} size=${buffer.length}`)
 
     try {
-      const accessToken = await getAccessToken()
+      const idToken = await getFirebaseIdToken()
 
-      // Upload via Firebase Storage REST API
       const uploadUrl =
         `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(BUCKET)}/o` +
         `?name=${encodeURIComponent(storagePath)}&uploadType=media`
@@ -78,7 +92,7 @@ export const uploadProductPhoto = onCall(
       const uploadRes = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Firebase ${idToken}`,
           'Content-Type': contentType,
         },
         body: buffer,
@@ -86,27 +100,23 @@ export const uploadProductPhoto = onCall(
 
       if (!uploadRes.ok) {
         const body = await uploadRes.text()
-        console.error(`uploadProductPhoto: upload falhou status=${uploadRes.status} body=${body}`)
+        console.error(`upload falhou status=${uploadRes.status} body=${body}`)
         throw new Error(`Upload falhou (${uploadRes.status}): ${body}`)
       }
 
-      // Injeta download token para gerar URL pública permanente
+      // Injeta download token para URL pública permanente
       const metaUrl =
         `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(BUCKET)}/o` +
         `/${encodeURIComponent(storagePath)}`
 
-      const patchRes = await fetch(metaUrl, {
+      await fetch(metaUrl, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Firebase ${idToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ metadata: { firebaseStorageDownloadTokens: downloadToken } }),
       })
-
-      if (!patchRes.ok) {
-        console.warn(`uploadProductPhoto: PATCH metadata falhou (${patchRes.status}) — usando URL sem token`)
-      }
 
       const photoUrl = `${metaUrl}?alt=media&token=${downloadToken}`
       console.log(`uploadProductPhoto: OK → ${photoUrl}`)
