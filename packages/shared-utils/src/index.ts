@@ -1,4 +1,5 @@
 export * from './currency'
 export * from './date'
+export * from './delivery'
 export * from './validators'
 export * from './slug'

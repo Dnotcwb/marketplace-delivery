@@ -36,6 +36,39 @@ interface CreateOrderInput {
   couponCode?: string
 }
 
+// ──────────────────────────────────────────────────────
+//  Helpers de frete dinâmico
+// ──────────────────────────────────────────────────────
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | null> {
+  const digits = cep.replace(/\D/g, '')
+  if (digits.length !== 8) return null
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?postalcode=${digits}&country=BR&format=json&limit=1`,
+      { headers: { 'User-Agent': 'marketplace-delivery-functions/1.0' } },
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as Array<{ lat: string; lon: string }>
+    if (!data.length) return null
+    return { lat: parseFloat(data[0]!.lat), lng: parseFloat(data[0]!.lon) }
+  } catch {
+    return null
+  }
+}
+
 const WEBHOOK_URL =
   'https://southamerica-east1-marketplace-delivery-dev.cloudfunctions.net/mercadoPagoWebhook'
 
@@ -143,7 +176,37 @@ export const createOrder = onCall(
         produtorGroups.set(produtorId, { produtorData, orderItems, subtotalInCents })
       }
 
-      const deliveryFeeInCents = (horta['deliveryFeeInCents'] as number) ?? 0
+      let deliveryFeeInCents = (horta['deliveryFeeInCents'] as number) ?? 0
+      let deliveryDistanceKm: number | undefined
+
+      const hortaLat = horta['lat'] as number | undefined
+      const hortaLng = horta['lng'] as number | undefined
+      const feePerKm = horta['deliveryFeePerKmInCents'] as number | undefined
+      const deliveryRadiusKm = horta['deliveryRadiusKm'] as number | undefined
+
+      if (hortaLat && hortaLng && feePerKm && feePerKm > 0) {
+        console.log('Frete dinâmico ativo — geocodificando CEP do cliente:', data.deliveryAddress.cep)
+        const coords = await geocodeCep(data.deliveryAddress.cep)
+        if (coords) {
+          const dist = haversineKm(hortaLat, hortaLng, coords.lat, coords.lng)
+          deliveryDistanceKm = dist
+          console.log(`Distância calculada: ${dist.toFixed(2)} km`)
+
+          if (deliveryRadiusKm && deliveryRadiusKm > 0 && dist > deliveryRadiusKm) {
+            throw new HttpsError(
+              'failed-precondition',
+              `Endereço fora da área de entrega (limite: ${deliveryRadiusKm} km)`,
+            )
+          }
+
+          const dynamic = Math.round(dist * feePerKm)
+          deliveryFeeInCents = Math.max(deliveryFeeInCents, dynamic)
+          console.log(`Taxa de entrega dinâmica: R$ ${(deliveryFeeInCents / 100).toFixed(2)}`)
+        } else {
+          console.log('Geocodificação falhou — usando taxa fixa')
+        }
+      }
+
       const minOrder = (horta['minOrderValueInCents'] as number) ?? 0
 
       if (minOrder > 0 && subtotalGlobalInCents < minOrder) {
@@ -234,6 +297,7 @@ export const createOrder = onCall(
         deliveryAddress: deliveryAddressClean,
         subtotalInCents: subtotalGlobalInCents,
         deliveryFeeInCents,
+        ...(deliveryDistanceKm !== undefined ? { deliveryDistanceKm } : {}),
         discountInCents,
         totalInCents,
         ...(couponCode ? { couponCode } : {}),

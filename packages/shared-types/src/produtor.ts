@@ -78,6 +78,8 @@ export interface Produtor {
   openingHours: ProdutorHours[]
   /** Taxa de entrega em centavos */
   deliveryFeeInCents: number
+  /** Taxa adicional por km além da base (0 = taxa fixa) */
+  deliveryFeePerKmInCents?: number
   /** Valor mínimo de pedido em centavos */
   minOrderValueInCents: number
   /** Tempo mínimo estimado de entrega (minutos) */

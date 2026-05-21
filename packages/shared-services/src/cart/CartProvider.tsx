@@ -13,6 +13,10 @@ export interface CartHorta {
   slug: string
   name: string
   deliveryFeeInCents: number
+  deliveryFeePerKmInCents?: number
+  deliveryRadiusKm?: number | null
+  lat?: number
+  lng?: number
   minOrderValueInCents: number
   estimatedDeliveryTimeMin: number
   estimatedDeliveryTimeMax: number

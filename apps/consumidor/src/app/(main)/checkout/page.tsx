@@ -9,7 +9,7 @@ import {
 } from '@marketplace/shared-services'
 import type { Address } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { calcDeliveryFee, formatCurrency, geocodeCep } from '@marketplace/shared-utils'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import Image from 'next/image'
@@ -102,6 +102,11 @@ export default function CheckoutPage() {
   const [cepLoading, setCepLoading] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
 
+  // Frete dinâmico
+  const [dynamicFeeInCents, setDynamicFeeInCents] = useState<number | null>(null)
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | undefined>(undefined)
+  const [feeOutOfRange, setFeeOutOfRange] = useState(false)
+
   // Pagamento
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [couponCode, setCouponCode] = useState('')
@@ -141,6 +146,27 @@ export default function CheckoutPage() {
     })
   }, [user])
 
+  // Geocodifica o CEP do endereço selecionado para cálculo de frete dinâmico
+  useEffect(() => {
+    if (!selectedAddressId || !horta?.deliveryFeePerKmInCents || !horta.lat || !horta.lng) {
+      setDynamicFeeInCents(null)
+      setDeliveryDistanceKm(undefined)
+      setFeeOutOfRange(false)
+      return
+    }
+    const addr = addresses.find((a) => a.id === selectedAddressId)
+    if (!addr) return
+    let cancelled = false
+    geocodeCep(addr.cep).then((coords) => {
+      if (cancelled) return
+      const result = calcDeliveryFee(horta, coords?.lat, coords?.lng)
+      setDynamicFeeInCents(result.feeInCents)
+      setDeliveryDistanceKm(result.distanceKm)
+      setFeeOutOfRange(result.outOfRange ?? false)
+    })
+    return () => { cancelled = true }
+  }, [selectedAddressId, addresses, horta])
+
   // Ouve mudança no status do pedido (PIX → confirma quando pago)
   useEffect(() => {
     if (pageState !== 'pix' || !orderResult?.orderId) return
@@ -157,7 +183,7 @@ export default function CheckoutPage() {
 
   if (authLoading || !user || !horta) return null
 
-  const deliveryFeeInCents = horta.deliveryFeeInCents
+  const deliveryFeeInCents = dynamicFeeInCents ?? horta.deliveryFeeInCents
   const totalInCents = subtotalInCents + deliveryFeeInCents
 
   // ── CEP lookup ──────────────────────────────────────
@@ -670,9 +696,18 @@ export default function CheckoutPage() {
                 <span>{formatCurrency(subtotalInCents)}</span>
               </div>
               <div className="flex justify-between text-neutral-500">
-                <span>Entrega</span>
+                <span className="flex items-center gap-1">
+                  Entrega
+                  {deliveryDistanceKm !== undefined && (
+                    <span className="text-xs text-neutral-400">
+                      · {deliveryDistanceKm.toFixed(1)} km
+                    </span>
+                  )}
+                </span>
                 <span>
-                  {deliveryFeeInCents === 0 ? (
+                  {feeOutOfRange ? (
+                    <span className="font-medium text-red-500">Fora do raio</span>
+                  ) : deliveryFeeInCents === 0 ? (
                     <span className="font-medium text-emerald-600">Grátis</span>
                   ) : (
                     formatCurrency(deliveryFeeInCents)
@@ -693,10 +728,15 @@ export default function CheckoutPage() {
             )}
 
             {/* Botão */}
+            {feeOutOfRange && (
+              <div className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">
+                Seu endereço está fora da área de entrega desta horta.
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={pageState === 'submitting' || !selectedAddressId}
+              disabled={pageState === 'submitting' || !selectedAddressId || feeOutOfRange}
               className="mt-5 w-full rounded-xl bg-brand-500 py-3.5 text-sm font-bold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {pageState === 'submitting' ? (

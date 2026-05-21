@@ -44,6 +44,15 @@ function HortaModal({ editing, onClose }: HortaModalProps) {
   )
   const [timeMin, setTimeMin] = useState(String(editing?.estimatedDeliveryTimeMin ?? 30))
   const [timeMax, setTimeMax] = useState(String(editing?.estimatedDeliveryTimeMax ?? 60))
+  const [feePerKm, setFeePerKm] = useState(
+    editing?.deliveryFeePerKmInCents
+      ? (editing.deliveryFeePerKmInCents / 100).toFixed(2).replace('.', ',')
+      : '',
+  )
+  const [radiusKm, setRadiusKm] = useState(String(editing?.deliveryRadiusKm ?? 0))
+  const [lat, setLat] = useState(String(editing?.lat ?? ''))
+  const [lng, setLng] = useState(String(editing?.lng ?? ''))
+  const [geocoding, setGeocoding] = useState(false)
   const [status, setStatus] = useState<'active' | 'inactive'>(editing?.status ?? 'active')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -56,18 +65,44 @@ function HortaModal({ editing, onClose }: HortaModalProps) {
     return v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   }
 
+  async function handleGeocode() {
+    const digits = cep.replace(/\D/g, '')
+    if (digits.length !== 8) { setError('CEP inválido para geocodificar'); return }
+    setGeocoding(true)
+    setError('')
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?postalcode=${digits}&country=BR&format=json&limit=1`,
+        { headers: { 'User-Agent': 'marketplace-delivery-backoffice/1.0' } },
+      )
+      const data = await res.json() as Array<{ lat: string; lon: string }>
+      if (!data.length) { setError('CEP não encontrado no Nominatim'); return }
+      setLat(parseFloat(data[0]!.lat).toFixed(6))
+      setLng(parseFloat(data[0]!.lon).toFixed(6))
+    } catch {
+      setError('Erro ao geocodificar. Tente novamente.')
+    } finally {
+      setGeocoding(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim() || !slug.trim()) { setError('Nome e slug são obrigatórios'); return }
     setSaving(true)
     setError('')
     try {
+      const parsedLat = parseFloat(lat)
+      const parsedLng = parseFloat(lng)
       const payload = {
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
         address: { cep, street, number, neighborhood, city, state },
         deliveryFeeInCents: parseCents(deliveryFee),
+        deliveryFeePerKmInCents: parseCents(feePerKm),
+        deliveryRadiusKm: parseFloat(radiusKm) || 0,
+        ...(parsedLat && parsedLng ? { lat: parsedLat, lng: parsedLng } : {}),
         minOrderValueInCents: parseCents(minOrder),
         estimatedDeliveryTimeMin: parseInt(timeMin) || 30,
         estimatedDeliveryTimeMax: parseInt(timeMax) || 60,
@@ -141,7 +176,7 @@ function HortaModal({ editing, onClose }: HortaModalProps) {
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Operação</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-600">Taxa de entrega (R$)</label>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Taxa base de entrega (R$)</label>
               <input value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} className={inputCls} placeholder="0,00" />
             </div>
             <div>
@@ -166,6 +201,36 @@ function HortaModal({ editing, onClose }: HortaModalProps) {
               </select>
             </div>
           </div>
+
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Frete dinâmico (opcional)</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Taxa por km (R$/km)</label>
+              <input value={feePerKm} onChange={(e) => setFeePerKm(e.target.value)} className={inputCls} placeholder="0,00 = frete fixo" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Raio máx. (km)</label>
+              <input type="number" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value)} className={inputCls} placeholder="0 = ilimitado" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Latitude</label>
+              <input value={lat} onChange={(e) => setLat(e.target.value)} className={inputCls} placeholder="-25.430" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Longitude</label>
+              <input value={lng} onChange={(e) => setLng(e.target.value)} className={inputCls} placeholder="-49.271" />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleGeocode}
+            disabled={geocoding}
+            className="w-full rounded-lg border border-neutral-300 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+          >
+            {geocoding ? 'Geocodificando…' : 'Preencher lat/lng pelo CEP acima'}
+          </button>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
 
