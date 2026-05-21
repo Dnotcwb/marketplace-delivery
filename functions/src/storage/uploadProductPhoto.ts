@@ -2,6 +2,15 @@ import * as admin from 'firebase-admin'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { randomUUID } from 'crypto'
 
+// Lê o bucket do FIREBASE_CONFIG (injetado pelo Firebase CLI); fallback explícito.
+function getStorageBucket(): string {
+  try {
+    const cfg = JSON.parse(process.env['FIREBASE_CONFIG'] ?? '{}') as { storageBucket?: string }
+    if (cfg.storageBucket) return cfg.storageBucket
+  } catch { /* ignora */ }
+  return 'marketplace-delivery-dev.firebasestorage.app'
+}
+
 export const uploadProductPhoto = onCall(
   { region: 'southamerica-east1', maxInstances: 10 },
   async (request) => {
@@ -47,9 +56,12 @@ export const uploadProductPhoto = onCall(
     const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg'
     const storagePath = `produtores/${produtorId}/products/${productId}/photo.${ext}`
     const downloadToken = randomUUID()
+    const bucketName = getStorageBucket()
+
+    console.log(`uploadProductPhoto: bucket=${bucketName} path=${storagePath} size=${buffer.length}`)
 
     try {
-      const bucket = admin.storage().bucket()
+      const bucket = admin.storage().bucket(bucketName)
       const file = bucket.file(storagePath)
 
       await file.save(buffer, {
@@ -59,16 +71,16 @@ export const uploadProductPhoto = onCall(
 
       const encodedPath = encodeURIComponent(storagePath)
       const photoUrl =
-        `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o` +
+        `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucketName)}/o` +
         `/${encodedPath}?alt=media&token=${downloadToken}`
 
       console.log(`uploadProductPhoto: OK → ${photoUrl}`)
       return { photoUrl }
     } catch (err) {
-      console.error('uploadProductPhoto erro:', err)
+      console.error('uploadProductPhoto erro (bucket=%s):', bucketName, err)
       throw new HttpsError(
         'internal',
-        `Falha ao salvar foto: ${err instanceof Error ? err.message : String(err)}`,
+        `Falha ao salvar foto [bucket=${bucketName}]: ${err instanceof Error ? err.message : String(err)}`,
       )
     }
   },
