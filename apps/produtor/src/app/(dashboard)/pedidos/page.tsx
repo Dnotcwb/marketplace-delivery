@@ -2,7 +2,7 @@
 
 import { firestore } from '@marketplace/shared-firebase'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
-import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
+import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import {
   arrayUnion,
@@ -200,7 +200,7 @@ function PrintableTicket({ order, produtorName }: { order: Order; produtorName: 
         <p><strong>ITENS</strong></p>
         {order.items.map((item, i) => (
           <div key={i}>
-            <p>{item.quantity}x {item.productName}</p>
+            <p>{item.quantity}{PRODUCT_UNIT_LABELS[item.unit]} {item.productName}</p>
             {item.notes && <p style={{ paddingLeft: '12px' }}>* {item.notes}</p>}
             <p style={{ textAlign: 'right' }}>{formatCurrency(item.priceInCents * item.quantity)}</p>
           </div>
@@ -297,7 +297,7 @@ function OrderDetailModal({
             <ul className="space-y-2">
               {order.items.map((item, i) => (
                 <li key={i} className="flex gap-3 text-sm">
-                  <span className="w-6 shrink-0 text-center font-bold text-neutral-700">{item.quantity}×</span>
+                  <span className="w-10 shrink-0 text-center font-bold text-neutral-700">{item.quantity} {PRODUCT_UNIT_LABELS[item.unit]}</span>
                   <div className="flex-1">
                     <p className="font-medium text-neutral-900">{item.productName}</p>
                     {item.notes && <p className="text-xs text-neutral-400">Obs: {item.notes}</p>}
@@ -413,7 +413,7 @@ function KanbanCard({
         {/* Itens resumo */}
         <p className="mt-0.5 truncate text-xs text-neutral-500">
           {order.items.length === 1
-            ? `${order.items[0]!.quantity}× ${order.items[0]!.productName}`
+            ? `${order.items[0]!.quantity} ${PRODUCT_UNIT_LABELS[order.items[0]!.unit]} ${order.items[0]!.productName}`
             : `${order.items.length} itens · ${order.items[0]!.productName}…`}
         </p>
 

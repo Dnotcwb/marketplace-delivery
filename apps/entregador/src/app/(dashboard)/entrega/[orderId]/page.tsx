@@ -3,6 +3,7 @@
 import { firestore } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
 import type { Order } from '@marketplace/shared-types'
+import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, doc, Timestamp, updateDoc } from 'firebase/firestore'
 import { useParams, useRouter } from 'next/navigation'
@@ -136,7 +137,7 @@ export default function EntregaDetailPage() {
           {order.items.map((item, i) => (
             <li key={i} className="flex items-center justify-between px-4 py-2.5">
               <span className="text-sm text-neutral-800">
-                {item.quantity}× {item.productName}
+                {item.quantity} {PRODUCT_UNIT_LABELS[item.unit]} {item.productName}
               </span>
               <span className="text-sm font-medium text-neutral-700">
                 {formatCurrency(item.priceInCents * item.quantity)}

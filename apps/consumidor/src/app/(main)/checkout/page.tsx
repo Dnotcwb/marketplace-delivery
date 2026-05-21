@@ -8,6 +8,7 @@ import {
   useCart,
 } from '@marketplace/shared-services'
 import type { Address } from '@marketplace/shared-types'
+import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
@@ -652,7 +653,7 @@ export default function CheckoutPage() {
               {items.map(({ product, quantity }) => (
                 <li key={product.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="flex-1 truncate text-neutral-700">
-                    {quantity}× {product.name}
+                    {quantity} {PRODUCT_UNIT_LABELS[product.unit]} {product.name}
                   </span>
                   <span className="font-semibold text-neutral-900">
                     {formatCurrency(product.priceInCents * quantity)}

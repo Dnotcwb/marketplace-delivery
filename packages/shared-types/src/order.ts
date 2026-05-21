@@ -1,4 +1,5 @@
 import type { Timestamp } from 'firebase/firestore'
+import type { ProductUnit } from './product'
 
 // ──────────────────────────────────────────────────────
 //  Endereço de entrega
@@ -56,7 +57,7 @@ export interface OrderItem {
   productName: string
   categoryId: string
   categoryName: string
-  unit: string
+  unit: ProductUnit
   priceInCents: number
   quantity: number
   photoUrl?: string

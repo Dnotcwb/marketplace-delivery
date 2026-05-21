@@ -1,6 +1,7 @@
 'use client'
 
 import { useCart } from '@marketplace/shared-services'
+import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -113,6 +114,9 @@ export default function CartDrawer() {
                   <div className="flex-1 overflow-hidden">
                     <p className="truncate text-sm font-semibold text-neutral-900">
                       {product.name}
+                    </p>
+                    <p className="text-xs text-neutral-400">
+                      {formatCurrency(product.priceInCents)}/{PRODUCT_UNIT_LABELS[product.unit]}
                     </p>
                     <p className="text-xs font-bold text-brand-600">
                       {formatCurrency(product.priceInCents * quantity)}

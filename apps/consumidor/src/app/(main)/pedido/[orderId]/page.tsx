@@ -3,7 +3,7 @@
 import { firestore } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
-import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
+import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, doc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
 import Image from 'next/image'
@@ -325,8 +325,8 @@ export default function PedidoPage() {
         <ul className="space-y-2">
           {order.items.map((item, i) => (
             <li key={i} className="flex items-center gap-2 text-sm">
-              <span className="min-w-[1.5rem] text-center font-semibold text-neutral-500">
-                {item.quantity}×
+              <span className="min-w-[2.5rem] text-center font-semibold text-neutral-500">
+                {item.quantity} {PRODUCT_UNIT_LABELS[item.unit]}
               </span>
               <span className="flex-1 text-neutral-700">{item.productName}</span>
               <span className="font-semibold text-neutral-900">
