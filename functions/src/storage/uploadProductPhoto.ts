@@ -9,7 +9,7 @@ import { GoogleAuth } from 'google-auth-library'
 const BUCKET = 'marketplace-delivery-dev.firebasestorage.app'
 
 const gAuth = new GoogleAuth({
-  scopes: ['https://www.googleapis.com/auth/devstorage.full_control'],
+  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
 })
 
 async function getAccessToken(): Promise<string> {
