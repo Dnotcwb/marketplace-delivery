@@ -92,7 +92,7 @@ async function fetchViaCep(cep: string): Promise<Partial<AddressForm> | null> {
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { items, produtor, subtotalInCents, clearCart } = useCart()
+  const { items, horta, subtotalInCents, clearCart } = useCart()
 
   // Endereços
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -155,9 +155,9 @@ export default function CheckoutPage() {
     return unsub
   }, [pageState, orderResult, clearCart, router])
 
-  if (authLoading || !user || !produtor) return null
+  if (authLoading || !user || !horta) return null
 
-  const deliveryFeeInCents = produtor.deliveryFeeInCents
+  const deliveryFeeInCents = horta.deliveryFeeInCents
   const totalInCents = subtotalInCents + deliveryFeeInCents
 
   // ── CEP lookup ──────────────────────────────────────
@@ -254,7 +254,7 @@ export default function CheckoutPage() {
       ...(selectedAddress.complement ? { complement: selectedAddress.complement } : {}),
     }
 
-    if (!produtor) {
+    if (!horta) {
       setPageState('form')
       return
     }
@@ -263,8 +263,9 @@ export default function CheckoutPage() {
 
     try {
       const res = await createOrderFn({
-        produtorId: produtor.id,
-        items: items.map(({ product, quantity, notes }) => ({
+        hortaId: horta.id,
+        items: items.map(({ product, produtorId, quantity, notes }) => ({
+          produtorId,
           productId: product.id,
           quantity,
           ...(notes ? { notes } : {}),
@@ -643,9 +644,9 @@ export default function CheckoutPage() {
           <div className="sticky top-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-base font-bold text-neutral-900">Resumo do pedido</h2>
 
-            {/* Produtor */}
+            {/* Horta */}
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              {produtor.name}
+              {horta.name}
             </p>
 
             {/* Itens */}

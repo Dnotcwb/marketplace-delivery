@@ -144,6 +144,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ==================== HORTAS ====================
+    match /hortas/{hortaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==================== PEDIDOS FILHOS ====================
+    match /pedidos_filhos/{filhoId} {
+      allow read: if isAdmin()
+                  || (isProducer() && isOwnerOfProdutor(resource.data.produtorId))
+                  || (isAuthenticated() && resource.data.customerId == userId());
+
+      allow create: if false;
+
+      allow update: if isAdmin()
+                    || (isProducer()
+                        && isOwnerOfProdutor(resource.data.produtorId)
+                        && hasOnlyAllowedFields(['status', 'updatedAt']));
+
+      allow delete: if false;
+    }
+
     // ==================== COUPONS ====================
     match /coupons/{couponCode} {
       allow read: if isAuthenticated();

@@ -12,7 +12,7 @@ export default function CartDrawer() {
     isOpen,
     closeCart,
     items,
-    produtor,
+    horta,
     subtotalInCents,
     removeItem,
     updateQuantity,
@@ -36,10 +36,10 @@ export default function CartDrawer() {
 
   if (!isOpen) return null
 
-  const deliveryFee = produtor?.deliveryFeeInCents ?? 0
+  const deliveryFee = horta?.deliveryFeeInCents ?? 0
   const total = subtotalInCents + deliveryFee
   const belowMinimum =
-    produtor && subtotalInCents < produtor.minOrderValueInCents
+    horta && subtotalInCents < horta.minOrderValueInCents
 
   return (
     <>
@@ -60,8 +60,8 @@ export default function CartDrawer() {
         <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
           <div>
             <h2 className="text-lg font-bold text-neutral-900">Meu carrinho</h2>
-            {produtor && (
-              <p className="text-xs text-neutral-500">{produtor.name}</p>
+            {horta && (
+              <p className="text-xs text-neutral-500">{horta.name}</p>
             )}
           </div>
           <button
@@ -187,8 +187,8 @@ export default function CartDrawer() {
 
             {belowMinimum && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                Pedido mínimo: {formatCurrency(produtor!.minOrderValueInCents)}. Faltam{' '}
-                {formatCurrency(produtor!.minOrderValueInCents - subtotalInCents)}.
+                Pedido mínimo: {formatCurrency(horta!.minOrderValueInCents)}. Faltam{' '}
+                {formatCurrency(horta!.minOrderValueInCents - subtotalInCents)}.
               </p>
             )}
 

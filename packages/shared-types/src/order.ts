@@ -134,6 +134,44 @@ export interface DeliveryAddress {
 //  Pedido
 // ──────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────
+//  Pedido Filho (por produtor dentro de um pedido de horta)
+// ──────────────────────────────────────────────────────
+
+export type FilhoStatus = 'pendente' | 'aceito' | 'em_preparo' | 'separado' | 'cancelado'
+
+export const FILHO_STATUS_LABELS: Record<FilhoStatus, string> = {
+  pendente:   'Aguardando',
+  aceito:     'Aceito',
+  em_preparo: 'Em preparo',
+  separado:   'Separado',
+  cancelado:  'Cancelado',
+}
+
+export interface PedidoFilho {
+  id: string
+  /** ID do documento em orders/ (pedido pai) */
+  pedidoPaiId: string
+  hortaId: string
+  produtorId: string
+  produtorName: string
+  /** Snapshot do cliente para exibição no kanban do produtor */
+  customerId: string
+  customerName: string
+  customerPhone: string
+  deliveryAddress: DeliveryAddress
+  status: FilhoStatus
+  /** Valor a repassar ao produtor, em centavos */
+  valorRepasseInCents: number
+  items: OrderItem[]
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+// ──────────────────────────────────────────────────────
+//  Pedido (Pedido Pai quando hortaId está presente)
+// ──────────────────────────────────────────────────────
+
 export interface Order {
   id: string
 
@@ -141,9 +179,15 @@ export interface Order {
   customerName: string
   customerPhone: string
 
+  /** Presente em pedidos do modelo legado (um único produtor) */
   produtorId: string
   produtorName: string
   produtorSlug: string
+
+  /** Presente nos novos pedidos de horta (multi-produtor) */
+  hortaId?: string
+  /** Quantos PedidoFilho este pedido tem */
+  pedidoFilhosCount?: number
 
   items: OrderItem[]
   deliveryAddress: DeliveryAddress

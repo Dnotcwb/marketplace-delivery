@@ -2,12 +2,13 @@
 
 import {
   getProdutorBySlug,
+  getHortaById,
   subscribeToCategories,
   subscribeToProducts,
   useCart,
 } from '@marketplace/shared-services'
-import type { CartProdutor } from '@marketplace/shared-services'
-import type { Category, Product, Produtor, ProdutorCertification } from '@marketplace/shared-types'
+import type { CartHorta } from '@marketplace/shared-services'
+import type { Category, Horta, Product, Produtor, ProdutorCertification } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -45,6 +46,7 @@ export default function ProdutorSlugPage() {
   const { addItem, clearCart, openCart } = useCart()
 
   const [produtor, setProdutor] = useState<Produtor | null | undefined>(undefined)
+  const [horta, setHorta] = useState<Horta | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
@@ -55,6 +57,17 @@ export default function ProdutorSlugPage() {
     if (!slug) return
     getProdutorBySlug(slug).then((p) => setProdutor(p ?? null))
   }, [slug])
+
+  // Carrega a Horta quando o produtor é encontrado
+  useEffect(() => {
+    if (!produtor) return
+    if (produtor.hortaId) {
+      getHortaById(produtor.hortaId).then(setHorta)
+    } else {
+      // Produtor sem horta associada — usa ele mesmo como horta virtual
+      setHorta(null)
+    }
+  }, [produtor?.id, produtor?.hortaId])
 
   useEffect(() => {
     if (!produtor?.id) return
@@ -86,18 +99,38 @@ export default function ProdutorSlugPage() {
 
   const products = allProducts.filter((p) => p.categoryId === activeCategoryId)
 
+  function buildCartHorta(): CartHorta {
+    // Se o produtor pertence a uma Horta, usa os dados da Horta.
+    // Caso contrário, usa o próprio produtor como horta virtual (backward compat).
+    if (horta) {
+      return {
+        id: horta.id,
+        slug: horta.slug,
+        name: horta.name,
+        deliveryFeeInCents: horta.deliveryFeeInCents,
+        minOrderValueInCents: horta.minOrderValueInCents,
+        estimatedDeliveryTimeMin: horta.estimatedDeliveryTimeMin,
+        estimatedDeliveryTimeMax: horta.estimatedDeliveryTimeMax,
+      }
+    }
+    return {
+      id: produtor!.id,
+      slug: produtor!.slug,
+      name: produtor!.name,
+      deliveryFeeInCents: produtor!.deliveryFeeInCents,
+      minOrderValueInCents: produtor!.minOrderValueInCents,
+      estimatedDeliveryTimeMin: produtor!.estimatedDeliveryTimeMin,
+      estimatedDeliveryTimeMax: produtor!.estimatedDeliveryTimeMax,
+    }
+  }
+
   function handleAddItem(product: Product) {
     if (!produtor) return
-    const cartProdutor: CartProdutor = {
-      id: produtor.id,
-      slug: produtor.slug,
-      name: produtor.name,
-      deliveryFeeInCents: produtor.deliveryFeeInCents,
-      minOrderValueInCents: produtor.minOrderValueInCents,
-      estimatedDeliveryTimeMin: produtor.estimatedDeliveryTimeMin,
-      estimatedDeliveryTimeMax: produtor.estimatedDeliveryTimeMax,
-    }
-    const result = addItem(product, cartProdutor)
+    const result = addItem(
+      product,
+      { id: produtor.id, name: produtor.name },
+      buildCartHorta(),
+    )
     if (result === 'conflict') {
       setConflictProduct(product)
     } else {
@@ -107,17 +140,8 @@ export default function ProdutorSlugPage() {
 
   function handleConflictConfirm() {
     if (!conflictProduct || !produtor) return
-    const cartProdutor: CartProdutor = {
-      id: produtor.id,
-      slug: produtor.slug,
-      name: produtor.name,
-      deliveryFeeInCents: produtor.deliveryFeeInCents,
-      minOrderValueInCents: produtor.minOrderValueInCents,
-      estimatedDeliveryTimeMin: produtor.estimatedDeliveryTimeMin,
-      estimatedDeliveryTimeMax: produtor.estimatedDeliveryTimeMax,
-    }
     clearCart()
-    addItem(conflictProduct, cartProdutor)
+    addItem(conflictProduct, { id: produtor.id, name: produtor.name }, buildCartHorta())
     setConflictProduct(null)
     openCart()
   }

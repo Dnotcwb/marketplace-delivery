@@ -94,6 +94,9 @@ export interface Produtor {
   /** Tags livres para busca: 'verduras', 'frutas', 'ervas' … */
   tags?: string[]
 
+  /** Horta à qual este produtor pertence (null = produtor independente) */
+  hortaId?: string | null
+
   // Plataforma
   status: ProdutorStatus
   /** % de comissão da plataforma — definida pelo admin */

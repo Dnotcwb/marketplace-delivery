@@ -7,7 +7,8 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 //  Tipos
 // ──────────────────────────────────────────────────────
 
-export interface CartProdutor {
+/** Dados mínimos da Horta necessários para o carrinho. */
+export interface CartHorta {
   id: string
   slug: string
   name: string
@@ -17,24 +18,41 @@ export interface CartProdutor {
   estimatedDeliveryTimeMax: number
 }
 
+/**
+ * @deprecated Use CartHorta. Mantido apenas para compatibilidade de tipo
+ * com código ainda não migrado.
+ */
+export type CartProdutor = CartHorta
+
 export interface CartItem {
   product: Product
+  /** ID do produtor dono deste item dentro da horta */
+  produtorId: string
+  produtorName: string
   quantity: number
   notes?: string
 }
 
 export interface CartState {
-  produtor: CartProdutor | null
+  horta: CartHorta | null
   items: CartItem[]
 }
 
 export interface CartContextValue {
-  produtor: CartProdutor | null
+  horta: CartHorta | null
   items: CartItem[]
   itemCount: number
   subtotalInCents: number
-  /** Adiciona item ao carrinho. Retorna 'conflict' se for de outro produtor. */
-  addItem: (product: Product, produtor: CartProdutor, notes?: string) => 'ok' | 'conflict'
+  /**
+   * Adiciona item ao carrinho.
+   * Retorna 'conflict' se for de uma horta diferente da atual.
+   */
+  addItem: (
+    product: Product,
+    produtorInfo: { id: string; name: string },
+    horta: CartHorta,
+    notes?: string,
+  ) => 'ok' | 'conflict'
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   updateNotes: (productId: string, notes: string) => void
@@ -50,16 +68,16 @@ export interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null)
 
-const STORAGE_KEY = 'al_cart'
+const STORAGE_KEY = 'al_cart_v2'
 
 function loadFromStorage(): CartState {
-  if (typeof window === 'undefined') return { produtor: null, items: [] }
+  if (typeof window === 'undefined') return { horta: null, items: [] }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { produtor: null, items: [] }
+    if (!raw) return { horta: null, items: [] }
     return JSON.parse(raw) as CartState
   } catch {
-    return { produtor: null, items: [] }
+    return { horta: null, items: [] }
   }
 }
 
@@ -76,64 +94,78 @@ function saveToStorage(state: CartState) {
 // ──────────────────────────────────────────────────────
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<CartState>({ produtor: null, items: [] })
+  const [state, setState] = useState<CartState>({ horta: null, items: [] })
   const [isOpen, setIsOpen] = useState(false)
 
-  // Carrega do localStorage uma única vez no mount
   useEffect(() => {
     setState(loadFromStorage())
   }, [])
 
-  // Persiste sempre que o estado muda
   useEffect(() => {
     saveToStorage(state)
   }, [state])
 
   const addItem = useCallback(
-    (product: Product, produtor: CartProdutor, notes?: string): 'ok' | 'conflict' => {
-      // Verifica conflito de produtor
-      if (state.produtor && state.produtor.id !== produtor.id) {
+    (
+      product: Product,
+      produtorInfo: { id: string; name: string },
+      horta: CartHorta,
+      notes?: string,
+    ): 'ok' | 'conflict' => {
+      if (state.horta && state.horta.id !== horta.id) {
         return 'conflict'
       }
 
       setState((prev) => {
-        const existingIdx = prev.items.findIndex((i) => i.product.id === product.id)
+        const existingIdx = prev.items.findIndex(
+          (i) => i.product.id === product.id && i.produtorId === produtorInfo.id,
+        )
         const items =
           existingIdx >= 0
             ? prev.items.map((item, idx) =>
-                idx === existingIdx
-                  ? { ...item, quantity: item.quantity + 1 }
-                  : item,
+                idx === existingIdx ? { ...item, quantity: item.quantity + 1 } : item,
               )
-            : [...prev.items, { product, quantity: 1, ...(notes ? { notes } : {}) }]
+            : [
+                ...prev.items,
+                {
+                  product,
+                  produtorId: produtorInfo.id,
+                  produtorName: produtorInfo.name,
+                  quantity: 1,
+                  ...(notes ? { notes } : {}),
+                },
+              ]
 
-        return { produtor, items }
+        return { horta, items }
       })
 
       return 'ok'
     },
-    [state.produtor],
+    [state.horta],
   )
 
   const removeItem = useCallback((productId: string) => {
     setState((prev) => {
       const items = prev.items.filter((i) => i.product.id !== productId)
-      return { produtor: items.length === 0 ? null : prev.produtor, items }
+      return { horta: items.length === 0 ? null : prev.horta, items }
     })
   }, [])
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItem(productId)
-      return
-    }
-    setState((prev) => ({
-      ...prev,
-      items: prev.items.map((i) =>
-        i.product.id === productId ? { ...i, quantity } : i,
-      ),
-    }))
-  }, [removeItem])
+  const updateQuantity = useCallback(
+    (productId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeItem(productId)
+        return
+      }
+      setState((prev) => ({
+        ...prev,
+        items: prev.items.map((i) =>
+          i.product.id === productId ? { ...i, quantity } : i,
+        ),
+      }))
+    },
+    [removeItem],
+  )
 
   const updateNotes = useCallback((productId: string, notes: string) => {
     setState((prev) => ({
@@ -145,7 +177,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const clearCart = useCallback(() => {
-    setState({ produtor: null, items: [] })
+    setState({ horta: null, items: [] })
   }, [])
 
   const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0)
@@ -157,7 +189,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   return (
     <CartContext.Provider
       value={{
-        produtor: state.produtor,
+        horta: state.horta,
         items: state.items,
         itemCount,
         subtotalInCents,
