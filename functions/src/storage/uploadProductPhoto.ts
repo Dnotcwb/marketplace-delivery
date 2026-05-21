@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 // Buckets .firebasestorage.app só aceitam Firebase Auth ID tokens — não aceitam
 // tokens OAuth2 de service accounts nem a GCS API. Criamos um custom token com
 // role=admin e o trocamos por um ID token via Firebase Auth REST API.
-const BUCKET = 'marketplace-delivery-dev.firebasestorage.app'
+const BUCKET = 'marketplace-delivery-dev.firebasestorage.app' // v2
 
 async function getFirebaseIdToken(): Promise<string> {
   const customToken = await admin.auth().createCustomToken('cloud-function-uploader', {
