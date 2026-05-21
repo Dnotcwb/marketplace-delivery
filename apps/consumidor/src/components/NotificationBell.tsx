@@ -131,9 +131,9 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — fixed full-width no mobile, absolute no desktop */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl z-50">
+        <div className="fixed inset-x-3 top-20 z-50 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
           {/* Cabeçalho */}
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
             <span className="text-sm font-bold text-neutral-900">Notificações</span>
@@ -148,7 +148,7 @@ export default function NotificationBell() {
           </div>
 
           {/* Lista */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-neutral-50">
+          <div className="max-h-[65vh] overflow-y-auto divide-y divide-neutral-50 sm:max-h-80">
             {notifs.length === 0 ? (
               <p className="py-10 text-center text-sm text-neutral-400">Sem notificações</p>
             ) : (

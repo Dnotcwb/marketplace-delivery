@@ -365,7 +365,7 @@ export default function CatalogoPage() {
         />
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:h-full sm:gap-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
         {/* ── Coluna de categorias ── */}
         <aside className="sm:w-56 sm:flex-shrink-0">
           <div className="mb-3 flex items-center justify-between">
@@ -439,7 +439,7 @@ export default function CatalogoPage() {
         </aside>
 
         {/* ── Área de produtos ── */}
-        <div className="flex-1 sm:overflow-hidden">
+        <div className="flex-1 min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-neutral-700">
               {activeCategoryId
@@ -474,7 +474,7 @@ export default function CatalogoPage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-2 overflow-y-auto">
+            <div className="space-y-2">
               {products.map((product) => (
                 <div
                   key={product.id}
@@ -503,11 +503,11 @@ export default function CatalogoPage() {
                   </div>
 
                   {/* Info */}
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <p className="truncate text-sm font-semibold text-neutral-900">{product.name}</p>
                       {product.isOrganic && (
-                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+                        <span className="hidden sm:inline shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
                           Orgânico
                         </span>
                       )}
