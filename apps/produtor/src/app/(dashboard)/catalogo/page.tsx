@@ -1,6 +1,6 @@
 'use client'
 
-import { storage } from '@marketplace/shared-firebase'
+import { functions, storage } from '@marketplace/shared-firebase'
 import {
   createCategory,
   createProduct,
@@ -14,7 +14,8 @@ import {
 } from '@marketplace/shared-services'
 import type { Category, Product, ProductUnit } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { httpsCallable } from 'firebase/functions'
+import { deleteObject, ref } from 'firebase/storage'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
@@ -41,6 +42,15 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promi
     }
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar imagem')) }
     img.src = url
+  })
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
   })
 }
 
@@ -178,23 +188,14 @@ function ProductModal({ produtorId, categories, editing, onClose }: ProductModal
     try {
       blob = await Promise.race([
         compressImage(photoFile),
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('compress-timeout')), 8_000)
-        ),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('compress-timeout')), 8_000)),
       ])
     } catch { /* usa original */ }
 
-    const storageRef = ref(storage, `produtores/${produtorId}/products/${productId}/photo.jpg`)
-    await Promise.race([
-      uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
-      new Promise<never>((_, rej) =>
-        setTimeout(
-          () => rej(Object.assign(new Error('Tempo esgotado (30 s). Verifique a conexão ou tente uma foto menor.'), { code: 'upload/timeout' })),
-          30_000
-        )
-      ),
-    ])
-    return getDownloadURL(storageRef)
+    const imageBase64 = await blobToBase64(blob)
+    const fn = httpsCallable<unknown, { photoUrl: string }>(functions, 'uploadProductPhoto')
+    const result = await fn({ produtorId, productId, imageBase64, contentType: 'image/jpeg' })
+    return result.data.photoUrl
   }
 
   async function handleSubmit(e: React.FormEvent) {
