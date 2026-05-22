@@ -111,58 +111,99 @@ export const createOrder = onCall(
       }
 
       let subtotalGlobalInCents = 0
-      // Map: produtorId → { produtorData, orderItems, subtotal }
       const produtorGroups = new Map<string, {
         produtorData: FirebaseFirestore.DocumentData
         orderItems: Record<string, unknown>[]
         subtotalInCents: number
       }>()
 
-      for (const [produtorId, prodItems] of itemsByProdutor) {
-        const produtorSnap = await db.collection('produtores').doc(produtorId).get()
-        if (!produtorSnap.exists) {
-          throw new HttpsError('not-found', `Produtor ${produtorId} não encontrado`)
-        }
-        const produtorData = produtorSnap.data()!
+      // Round 1: busca todos os produtores em paralelo
+      const produtorEntries = [...itemsByProdutor.entries()]
+      const produtorSnaps = await Promise.all(
+        produtorEntries.map(([id]) => db.collection('produtores').doc(id).get()),
+      )
+
+      // Valida produtores
+      const validatedProdutores: FirebaseFirestore.DocumentData[] = []
+      for (let pi = 0; pi < produtorEntries.length; pi++) {
+        const [produtorId] = produtorEntries[pi]!
+        const snap = produtorSnaps[pi]!
+        if (!snap.exists) throw new HttpsError('not-found', `Produtor ${produtorId} não encontrado`)
+        const produtorData = snap.data()!
         if (produtorData['status'] !== 'approved') {
           throw new HttpsError('failed-precondition', `Produtor ${produtorData['name']} não está ativo`)
         }
-        // Confere que este produtor pertence à horta
         const hortaIdDoProd = produtorData['hortaId'] as string | undefined
         if (hortaIdDoProd && hortaIdDoProd !== data.hortaId) {
           throw new HttpsError('failed-precondition', `Produtor ${produtorData['name']} não pertence a esta horta`)
         }
+        validatedProdutores.push(produtorData)
+      }
+
+      // Round 2: busca todos os produtos em paralelo (across all produtores)
+      const allProductFetches = produtorEntries.flatMap(([produtorId, prodItems]) =>
+        prodItems.map((item) =>
+          db.collection('produtores').doc(produtorId)
+            .collection('products').doc(item.productId)
+            .get()
+            .then((snap) => ({ produtorId, item, snap })),
+        ),
+      )
+      const allProductResults = await Promise.all(allProductFetches)
+
+      // Valida produtos
+      for (const { item, snap } of allProductResults) {
+        if (!snap.exists) throw new HttpsError('not-found', `Produto ${item.productId} não encontrado`)
+        const product = snap.data()!
+        if (!product['available']) throw new HttpsError('failed-precondition', `${product['name']} está indisponível`)
+      }
+
+      // Round 3: busca todas as categorias únicas em paralelo
+      const seenCats = new Set<string>()
+      const catFetches: Promise<{ produtorId: string; catId: string; snap: FirebaseFirestore.DocumentSnapshot }>[] = []
+      for (const { produtorId, snap } of allProductResults) {
+        const catId = snap.data()!['categoryId'] as string | undefined
+        if (catId) {
+          const key = `${produtorId}/${catId}`
+          if (!seenCats.has(key)) {
+            seenCats.add(key)
+            catFetches.push(
+              db.collection('produtores').doc(produtorId).collection('categories').doc(catId).get()
+                .then((s) => ({ produtorId, catId, snap: s })),
+            )
+          }
+        }
+      }
+      const catResults = await Promise.all(catFetches)
+      const catNameMap = new Map<string, string>()
+      for (const { produtorId, catId, snap } of catResults) {
+        catNameMap.set(`${produtorId}/${catId}`, snap.exists ? ((snap.data()!['name'] as string) ?? '') : '')
+      }
+
+      // Mapa plano para acesso O(1): "produtorId/productId" → data
+      const productDataMap = new Map<string, FirebaseFirestore.DocumentData>()
+      for (const { produtorId, item, snap } of allProductResults) {
+        productDataMap.set(`${produtorId}/${item.productId}`, snap.data()!)
+      }
+
+      // Constrói produtorGroups com dados já em memória
+      for (let pi = 0; pi < produtorEntries.length; pi++) {
+        const [produtorId, prodItems] = produtorEntries[pi]!
+        const produtorData = validatedProdutores[pi]!
 
         let subtotalInCents = 0
         const orderItems: Record<string, unknown>[] = []
 
         for (const item of prodItems) {
-          const productSnap = await db
-            .collection('produtores').doc(produtorId)
-            .collection('products').doc(item.productId)
-            .get()
-          if (!productSnap.exists) {
-            throw new HttpsError('not-found', `Produto ${item.productId} não encontrado`)
-          }
-          const product = productSnap.data()!
-          if (!product['available']) {
-            throw new HttpsError('failed-precondition', `${product['name']} está indisponível`)
-          }
-
-          let categoryName = ''
-          if (product['categoryId']) {
-            const catSnap = await db
-              .collection('produtores').doc(produtorId)
-              .collection('categories').doc(product['categoryId'])
-              .get()
-            if (catSnap.exists) categoryName = (catSnap.data()!['name'] as string) ?? ''
-          }
+          const product = productDataMap.get(`${produtorId}/${item.productId}`)!
+          const catId = product['categoryId'] as string | undefined
+          const categoryName = catId ? (catNameMap.get(`${produtorId}/${catId}`) ?? '') : ''
 
           subtotalInCents += (product['priceInCents'] as number) * item.quantity
           orderItems.push({
             productId: item.productId,
             productName: product['name'],
-            categoryId: product['categoryId'] ?? '',
+            categoryId: catId ?? '',
             categoryName,
             unit: product['unit'],
             priceInCents: product['priceInCents'],
@@ -216,43 +257,45 @@ export const createOrder = onCall(
         )
       }
 
-      // 3. Cupom (aplicado ao total global)
+      // 3-4. Cupom + dados do cliente em paralelo
       console.log('Etapa 3: cupom —', data.couponCode ?? 'nenhum')
+      const [couponSnap, userSnap] = await Promise.all([
+        data.couponCode
+          ? db.collection('coupons').doc(data.couponCode.toUpperCase()).get()
+          : Promise.resolve(null),
+        db.collection('users').doc(uid).get(),
+      ])
+
       let discountInCents = 0
       let couponCode: string | undefined
 
-      if (data.couponCode) {
-        const couponSnap = await db.collection('coupons').doc(data.couponCode.toUpperCase()).get()
-        if (couponSnap.exists) {
-          const c = couponSnap.data()!
-          const now = new Date()
-          const validFrom = c['validFrom'].toDate() as Date
-          const validUntil = c['validUntil'].toDate() as Date
-          const usesOk = !c['maxUses'] || (c['usedCount'] as number) < (c['maxUses'] as number)
-          const minOk = !c['minOrderValueInCents'] || subtotalGlobalInCents >= (c['minOrderValueInCents'] as number)
+      if (data.couponCode && couponSnap?.exists) {
+        const c = couponSnap.data()!
+        const now = new Date()
+        const validFrom = c['validFrom'].toDate() as Date
+        const validUntil = c['validUntil'].toDate() as Date
+        const usesOk = !c['maxUses'] || (c['usedCount'] as number) < (c['maxUses'] as number)
+        const minOk = !c['minOrderValueInCents'] || subtotalGlobalInCents >= (c['minOrderValueInCents'] as number)
 
-          if (c['active'] && validFrom <= now && validUntil >= now && usesOk && minOk) {
-            couponCode = couponSnap.id
-            if (c['type'] === 'percentage') {
-              discountInCents = Math.floor(subtotalGlobalInCents * ((c['value'] as number) / 100))
-            } else {
-              discountInCents = c['value'] as number
-            }
-            if (c['maxDiscountInCents']) {
-              discountInCents = Math.min(discountInCents, c['maxDiscountInCents'] as number)
-            }
-            discountInCents = Math.min(discountInCents, subtotalGlobalInCents)
-            await couponSnap.ref.update({ usedCount: FieldValue.increment(1) })
+        if (c['active'] && validFrom <= now && validUntil >= now && usesOk && minOk) {
+          couponCode = couponSnap.id
+          if (c['type'] === 'percentage') {
+            discountInCents = Math.floor(subtotalGlobalInCents * ((c['value'] as number) / 100))
+          } else {
+            discountInCents = c['value'] as number
           }
+          if (c['maxDiscountInCents']) {
+            discountInCents = Math.min(discountInCents, c['maxDiscountInCents'] as number)
+          }
+          discountInCents = Math.min(discountInCents, subtotalGlobalInCents)
+          await couponSnap.ref.update({ usedCount: FieldValue.increment(1) })
         }
       }
 
       const totalInCents = subtotalGlobalInCents + deliveryFeeInCents - discountInCents
       console.log('Total calculado (cents):', totalInCents)
 
-      // 4. Dados do cliente
       console.log('Etapa 4: dados do cliente')
-      const userSnap = await db.collection('users').doc(uid).get()
       const user = userSnap.data() ?? {}
       const customerName = (user['displayName'] as string) ?? (user['name'] as string) ?? ''
       const customerPhone = (user['phone'] as string) ?? ''

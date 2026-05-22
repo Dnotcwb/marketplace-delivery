@@ -5,7 +5,7 @@ import {
   listProdutoresAprovados,
 } from '@marketplace/shared-services'
 import type { Horta, Produtor, ProdutorCertification } from '@marketplace/shared-types'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import HortaCard from '@/components/HortaCard'
 import ProdutorCard from '@/components/ProdutorCard'
 
@@ -35,25 +35,37 @@ export default function HomePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Mapa de produtores por horta — recalcula só quando produtores mudam
+  const produtoresByHorta = useMemo(() => {
+    const map = new Map<string, Produtor[]>()
+    for (const p of produtores) {
+      if (p.hortaId) {
+        const list = map.get(p.hortaId) ?? []
+        list.push(p)
+        map.set(p.hortaId, list)
+      }
+    }
+    return map
+  }, [produtores])
+
   // Produtores sem horta aparecem individualmente
-  const soloProdutores = produtores.filter((p) => !p.hortaId)
+  const soloProdutores = useMemo(
+    () => produtores.filter((p) => !p.hortaId),
+    [produtores],
+  )
 
-  function getProdutoresForHorta(hortaId: string): Produtor[] {
-    return produtores.filter((p) => p.hortaId === hortaId)
-  }
+  // Filtragem por certificação — recalcula só quando hortas/produtores/filtro mudam
+  const filteredHortas = useMemo(() => {
+    if (activeCert === 'all') return hortas
+    return hortas.filter((h) =>
+      (produtoresByHorta.get(h.id) ?? []).some((p) => p.certifications.includes(activeCert)),
+    )
+  }, [hortas, activeCert, produtoresByHorta])
 
-  // Filtragem por certificação
-  const filteredHortas =
-    activeCert === 'all'
-      ? hortas
-      : hortas.filter((h) =>
-          getProdutoresForHorta(h.id).some((p) => p.certifications.includes(activeCert)),
-        )
-
-  const filteredSolo =
-    activeCert === 'all'
-      ? soloProdutores
-      : soloProdutores.filter((p) => p.certifications.includes(activeCert))
+  const filteredSolo = useMemo(() => {
+    if (activeCert === 'all') return soloProdutores
+    return soloProdutores.filter((p) => p.certifications.includes(activeCert))
+  }, [soloProdutores, activeCert])
 
   const totalResults = filteredHortas.length + filteredSolo.length
 
@@ -142,7 +154,7 @@ export default function HomePage() {
                   <HortaCard
                     key={h.id}
                     horta={h}
-                    produtores={getProdutoresForHorta(h.id)}
+                    produtores={produtoresByHorta.get(h.id) ?? []}
                   />
                 ))}
               </div>

@@ -4,7 +4,7 @@ import { firestore } from '@marketplace/shared-firebase'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore'
+import { collection, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
@@ -43,17 +43,14 @@ export default function HistoricoPage() {
     const q = query(
       collection(firestore, 'orders'),
       where('produtorId', '==', produtor.id),
+      orderBy('createdAt', 'desc'),
+      limit(200),
     )
 
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }) as Order)
         .filter((o) => TERMINAL.includes(o.status))
-        .sort((a, b) => {
-          const aT = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0
-          const bT = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0
-          return bT - aT
-        })
       setOrders(list)
       setLoading(false)
     }, (err) => {

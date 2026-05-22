@@ -106,6 +106,7 @@ export default function CheckoutPage() {
   const [dynamicFeeInCents, setDynamicFeeInCents] = useState<number | null>(null)
   const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | undefined>(undefined)
   const [feeOutOfRange, setFeeOutOfRange] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
 
   // Pagamento
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
@@ -157,12 +158,14 @@ export default function CheckoutPage() {
     const addr = addresses.find((a) => a.id === selectedAddressId)
     if (!addr) return
     let cancelled = false
+    setGeocoding(true)
     geocodeCep(addr.cep).then((coords) => {
       if (cancelled) return
       const result = calcDeliveryFee(horta, coords?.lat, coords?.lng)
       setDynamicFeeInCents(result.feeInCents)
       setDeliveryDistanceKm(result.distanceKm)
       setFeeOutOfRange(result.outOfRange ?? false)
+      setGeocoding(false)
     })
     return () => { cancelled = true }
   }, [selectedAddressId, addresses, horta])
@@ -698,14 +701,16 @@ export default function CheckoutPage() {
               <div className="flex justify-between text-neutral-500">
                 <span className="flex items-center gap-1">
                   Entrega
-                  {deliveryDistanceKm !== undefined && (
+                  {!geocoding && deliveryDistanceKm !== undefined && (
                     <span className="text-xs text-neutral-400">
                       · {deliveryDistanceKm.toFixed(1)} km
                     </span>
                   )}
                 </span>
                 <span>
-                  {feeOutOfRange ? (
+                  {geocoding ? (
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-brand-400 border-t-transparent" />
+                  ) : feeOutOfRange ? (
                     <span className="font-medium text-red-500">Fora do raio</span>
                   ) : deliveryFeeInCents === 0 ? (
                     <span className="font-medium text-emerald-600">Grátis</span>
@@ -736,7 +741,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={pageState === 'submitting' || !selectedAddressId || feeOutOfRange}
+              disabled={pageState === 'submitting' || !selectedAddressId || feeOutOfRange || geocoding}
               className="mt-5 w-full rounded-xl bg-brand-500 py-3.5 text-sm font-bold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {pageState === 'submitting' ? (
