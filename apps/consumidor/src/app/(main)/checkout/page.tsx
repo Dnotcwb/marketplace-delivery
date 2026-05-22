@@ -9,7 +9,7 @@ import {
 } from '@marketplace/shared-services'
 import type { Address } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { calcDeliveryFee, formatCurrency, geocodeCep } from '@marketplace/shared-utils'
+import { calcDeliveryFee, formatCurrency } from '@marketplace/shared-utils'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import Image from 'next/image'
@@ -162,24 +162,31 @@ export default function CheckoutPage() {
     let cancelled = false
     setGeocoding(true)
     setGeocodingFailed(false)
-    geocodeCep(addr.cep).then((coords) => {
-      if (cancelled) return
-      if (!coords) {
-        // Geocodificação falhou — mantém taxa fixa e avisa o usuário
-        setGeocodingFailed(true)
-        setDynamicFeeInCents(null)
-        setDeliveryDistanceKm(undefined)
-        setFeeOutOfRange(false)
+    const cepDigits = addr.cep.replace(/\D/g, '')
+    fetch(`/api/geocode?cep=${cepDigits}`)
+      .then((r) => r.json() as Promise<{ lat: number; lng: number } | null>)
+      .then((coords) => {
+        if (cancelled) return
+        if (!coords) {
+          setGeocodingFailed(true)
+          setDynamicFeeInCents(null)
+          setDeliveryDistanceKm(undefined)
+          setFeeOutOfRange(false)
+          setGeocoding(false)
+          return
+        }
+        const result = calcDeliveryFee(horta, coords.lat, coords.lng)
+        setDynamicFeeInCents(result.feeInCents)
+        setDeliveryDistanceKm(result.distanceKm)
+        setFeeOutOfRange(result.outOfRange ?? false)
+        setGeocodingFailed(false)
         setGeocoding(false)
-        return
-      }
-      const result = calcDeliveryFee(horta, coords.lat, coords.lng)
-      setDynamicFeeInCents(result.feeInCents)
-      setDeliveryDistanceKm(result.distanceKm)
-      setFeeOutOfRange(result.outOfRange ?? false)
-      setGeocodingFailed(false)
-      setGeocoding(false)
-    })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setGeocodingFailed(true)
+        setGeocoding(false)
+      })
     return () => { cancelled = true }
   }, [selectedAddressId, addresses, horta])
 
