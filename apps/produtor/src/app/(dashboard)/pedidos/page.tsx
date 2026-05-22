@@ -59,12 +59,14 @@ const NEXT_STATUS: Partial<Record<FilhoStatus, FilhoStatus>> = {
   pendente:   'aceito',
   aceito:     'em_preparo',
   em_preparo: 'separado',
+  separado:   'retirado',
 }
 
 const ACTION_LABEL: Partial<Record<FilhoStatus, string>> = {
   pendente:   'Aceitar',
   aceito:     'Iniciar preparo',
   em_preparo: 'Separado',
+  separado:   'Retirado',
 }
 
 // ──────────────────────────────────────────────────────
@@ -207,7 +209,7 @@ function FilhoDetailModal({
 }) {
   const canAdvance = !!NEXT_STATUS[filho.status]
   const canCancel = ['pendente', 'aceito'].includes(filho.status)
-  const isTerminal = ['separado', 'cancelado'].includes(filho.status)
+  const isTerminal = ['retirado', 'entregue', 'cancelado'].includes(filho.status)
 
   return (
     <div className="print:hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
