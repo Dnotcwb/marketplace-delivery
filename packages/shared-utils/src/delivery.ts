@@ -58,21 +58,47 @@ export function calcDeliveryFee(
 }
 
 /**
- * Geocodifica um CEP brasileiro via Nominatim (OpenStreetMap).
- * Retorna null em caso de falha — o chamador deve usar a taxa fixa.
+ * Geocodifica um CEP brasileiro em coordenadas.
+ * Estratégia: Nominatim por CEP → fallback Nominatim por cidade/UF (via ViaCEP).
+ * Retorna null se ambas as tentativas falharem.
  */
 export async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | null> {
   const digits = cep.replace(/\D/g, '')
   if (digits.length !== 8) return null
+
+  const headers = { 'User-Agent': 'marketplace-delivery/1.0 contact@example.com' }
+
   try {
-    const url = `https://nominatim.openstreetmap.org/search?postalcode=${digits}&country=BR&format=json&limit=1`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'marketplace-delivery/1.0 contact@example.com' },
-    })
-    if (!res.ok) return null
-    const data = (await res.json()) as Array<{ lat: string; lon: string }>
-    if (!data.length) return null
-    return { lat: parseFloat(data[0]!.lat), lng: parseFloat(data[0]!.lon) }
+    // Tentativa 1: Nominatim por CEP
+    const r1 = await fetch(
+      `https://nominatim.openstreetmap.org/search?postalcode=${digits}&country=BR&format=json&limit=1`,
+      { headers },
+    )
+    if (r1.ok) {
+      const d1 = (await r1.json()) as Array<{ lat: string; lon: string }>
+      if (d1.length > 0) {
+        return { lat: parseFloat(d1[0]!.lat), lng: parseFloat(d1[0]!.lon) }
+      }
+    }
+  } catch { /* continua para o fallback */ }
+
+  try {
+    // Tentativa 2: ViaCEP → cidade/UF → Nominatim por cidade
+    const rCep = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+    if (!rCep.ok) return null
+    const cepData = (await rCep.json()) as { erro?: boolean; localidade?: string; uf?: string }
+    if (cepData.erro || !cepData.localidade || !cepData.uf) return null
+
+    const city  = encodeURIComponent(cepData.localidade)
+    const state = encodeURIComponent(cepData.uf)
+    const r2 = await fetch(
+      `https://nominatim.openstreetmap.org/search?city=${city}&state=${state}&country=BR&format=json&limit=1`,
+      { headers },
+    )
+    if (!r2.ok) return null
+    const d2 = (await r2.json()) as Array<{ lat: string; lon: string }>
+    if (!d2.length) return null
+    return { lat: parseFloat(d2[0]!.lat), lng: parseFloat(d2[0]!.lon) }
   } catch {
     return null
   }

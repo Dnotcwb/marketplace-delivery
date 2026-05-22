@@ -107,6 +107,7 @@ export default function CheckoutPage() {
   const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | undefined>(undefined)
   const [feeOutOfRange, setFeeOutOfRange] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
+  const [geocodingFailed, setGeocodingFailed] = useState(false)
 
   // Pagamento
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
@@ -153,18 +154,30 @@ export default function CheckoutPage() {
       setDynamicFeeInCents(null)
       setDeliveryDistanceKm(undefined)
       setFeeOutOfRange(false)
+      setGeocodingFailed(false)
       return
     }
     const addr = addresses.find((a) => a.id === selectedAddressId)
     if (!addr) return
     let cancelled = false
     setGeocoding(true)
+    setGeocodingFailed(false)
     geocodeCep(addr.cep).then((coords) => {
       if (cancelled) return
-      const result = calcDeliveryFee(horta, coords?.lat, coords?.lng)
+      if (!coords) {
+        // Geocodificação falhou — mantém taxa fixa e avisa o usuário
+        setGeocodingFailed(true)
+        setDynamicFeeInCents(null)
+        setDeliveryDistanceKm(undefined)
+        setFeeOutOfRange(false)
+        setGeocoding(false)
+        return
+      }
+      const result = calcDeliveryFee(horta, coords.lat, coords.lng)
       setDynamicFeeInCents(result.feeInCents)
       setDeliveryDistanceKm(result.distanceKm)
       setFeeOutOfRange(result.outOfRange ?? false)
+      setGeocodingFailed(false)
       setGeocoding(false)
     })
     return () => { cancelled = true }
@@ -719,6 +732,11 @@ export default function CheckoutPage() {
                   )}
                 </span>
               </div>
+              {geocodingFailed && (
+                <p className="text-xs text-amber-600">
+                  Não foi possível calcular a distância — usando taxa fixa.
+                </p>
+              )}
               <div className="flex justify-between border-t border-neutral-100 pt-2 font-bold text-neutral-900">
                 <span>Total</span>
                 <span>{formatCurrency(totalInCents)}</span>
