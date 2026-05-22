@@ -85,7 +85,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   accepted:    'Pedido aceito',
   preparing:   'Em preparo',
   ready:       'Pronto',
-  on_delivery: 'Saiu para entrega',
+  on_delivery: 'Retirado',
   delivered:   'Entregue',
   cancelled:   'Cancelado',
   refunded:    'Estornado',
@@ -138,13 +138,22 @@ export interface DeliveryAddress {
 //  Pedido Filho (por produtor dentro de um pedido de horta)
 // ──────────────────────────────────────────────────────
 
-export type FilhoStatus = 'pendente' | 'aceito' | 'em_preparo' | 'separado' | 'cancelado'
+export type FilhoStatus =
+  | 'pendente'
+  | 'aceito'
+  | 'em_preparo'
+  | 'separado'
+  | 'retirado'
+  | 'entregue'
+  | 'cancelado'
 
 export const FILHO_STATUS_LABELS: Record<FilhoStatus, string> = {
   pendente:   'Aguardando',
   aceito:     'Aceito',
   em_preparo: 'Em preparo',
   separado:   'Separado',
+  retirado:   'Retirado',
+  entregue:   'Entregue',
   cancelado:  'Cancelado',
 }
 

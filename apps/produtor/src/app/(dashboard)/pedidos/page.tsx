@@ -501,7 +501,7 @@ export default function PedidosPage() {
 
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }) as PedidoFilho)
-          .filter((f) => f.status !== 'cancelado')
+          .filter((f) => !['cancelado', 'retirado', 'entregue'].includes(f.status))
           .sort((a, b) => {
             const aT = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0
             const bT = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0

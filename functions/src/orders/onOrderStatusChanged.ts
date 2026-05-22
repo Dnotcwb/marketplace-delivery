@@ -6,8 +6,8 @@ const CUSTOMER_MESSAGES: Record<string, string> = {
   confirmed:   'Pagamento confirmado! A horta está processando seu pedido.',
   accepted:    'A horta aceitou seu pedido e em breve começará o preparo.',
   preparing:   'Seu pedido está sendo preparado com carinho.',
-  ready:       'Seu pedido está pronto e aguardando entrega.',
-  on_delivery: 'Seu pedido saiu para entrega. Logo chegará!',
+  ready:       'Seu pedido está pronto e aguardando retirada pelo entregador.',
+  on_delivery: 'Seu pedido foi retirado e está a caminho!',
   delivered:   'Pedido entregue. Bom proveito! 🥦',
   cancelled:   'Seu pedido foi cancelado.',
   refunded:    'O pagamento do seu pedido foi estornado.',
@@ -70,6 +70,34 @@ export const onOrderStatusChanged = onDocumentUpdated(
             read:      false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           }),
+        )
+      }
+    }
+
+    // ── Propagar status para pedidos_filhos ────────────────────
+    // on_delivery → retirado | delivered → entregue
+    const filhoStatusMap: Record<string, string> = {
+      on_delivery: 'retirado',
+      delivered:   'entregue',
+    }
+    const filhoStatus = filhoStatusMap[newStatus]
+    if (filhoStatus) {
+      const filhosSnap = await db
+        .collection('pedidos_filhos')
+        .where('pedidoPaiId', '==', orderId)
+        .get()
+
+      if (!filhosSnap.empty) {
+        const batch = db.batch()
+        for (const filhoDoc of filhosSnap.docs) {
+          batch.update(filhoDoc.ref, {
+            status: filhoStatus,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          })
+        }
+        tasks.push(batch.commit())
+        console.log(
+          `onOrderStatusChanged: propagando ${filhoStatus} para ${filhosSnap.size} pedido(s) filho(s)`,
         )
       }
     }

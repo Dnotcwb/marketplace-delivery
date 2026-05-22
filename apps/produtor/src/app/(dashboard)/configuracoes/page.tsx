@@ -2,7 +2,6 @@
 
 import { updateProdutor } from '@marketplace/shared-services'
 import type { ProdutorCertification } from '@marketplace/shared-types'
-import { geocodeCep } from '@marketplace/shared-utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -61,14 +60,6 @@ export default function ConfiguracoesPage() {
   const [basicStatus, setBasicStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
   const [opStatus, setOpStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
 
-  // Frete dinâmico
-  const [locLat, setLocLat] = useState('')
-  const [locLng, setLocLng] = useState('')
-  const [feePerKm, setFeePerKm] = useState('')
-  const [radiusKm, setRadiusKm] = useState('')
-  const [locGeocoding, setLocGeocoding] = useState(false)
-  const [locStatus, setLocStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
-
   // — Dados básicos form
   const {
     register: regBasic,
@@ -105,12 +96,6 @@ export default function ConfiguracoesPage() {
       timeMax: produtor.estimatedDeliveryTimeMax,
       certifications: produtor.certifications ?? [],
     })
-    setLocLat(produtor.address.lat != null ? String(produtor.address.lat) : '')
-    setLocLng(produtor.address.lng != null ? String(produtor.address.lng) : '')
-    setFeePerKm(
-      produtor.deliveryFeePerKmInCents ? centsToStr(produtor.deliveryFeePerKmInCents) : '',
-    )
-    setRadiusKm(produtor.deliveryRadiusKm != null ? String(produtor.deliveryRadiusKm) : '')
   }, [produtor, resetBasic, resetOp])
 
   const desc = watchBasic('description') ?? ''
@@ -156,38 +141,6 @@ export default function ConfiguracoesPage() {
       setTimeout(() => setOpStatus('idle'), 3000)
     } catch {
       setOpStatus('err')
-    }
-  }
-
-  async function handleLocGeocode() {
-    if (!produtor) return
-    setLocGeocoding(true)
-    const coords = await geocodeCep(produtor.address.cep)
-    if (coords) {
-      setLocLat(coords.lat.toFixed(6))
-      setLocLng(coords.lng.toFixed(6))
-    }
-    setLocGeocoding(false)
-  }
-
-  async function saveLoc() {
-    if (!produtor) return
-    setLocStatus('saving')
-    try {
-      const parsedLat = parseFloat(locLat)
-      const parsedLng = parseFloat(locLng)
-      await updateProdutor(produtor.id, {
-        deliveryFeePerKmInCents: strToCents(feePerKm),
-        deliveryRadiusKm: parseFloat(radiusKm) || 0,
-        address: {
-          ...produtor.address,
-          ...(parsedLat && parsedLng ? { lat: parsedLat, lng: parsedLng } : {}),
-        },
-      })
-      setLocStatus('ok')
-      setTimeout(() => setLocStatus('idle'), 3000)
-    } catch {
-      setLocStatus('err')
     }
   }
 
@@ -356,89 +309,6 @@ export default function ConfiguracoesPage() {
         </form>
       </section>
 
-      {/* ── Frete dinâmico ── */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-1 text-base font-bold text-neutral-800">Frete dinâmico por distância</h2>
-        <p className="mb-5 text-xs text-neutral-400">
-          Opcional. Quando configurado, o frete varia com a distância. Sem configuração, o valor fixo acima é usado.
-        </p>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">Taxa por km (R$/km)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">R$</span>
-                <input
-                  value={feePerKm}
-                  onChange={(e) => setFeePerKm(e.target.value)}
-                  placeholder="0,00"
-                  className={`${inputCls} pl-9`}
-                />
-              </div>
-              <p className="mt-1 text-xs text-neutral-400">0,00 = taxa fixa sem dinâmica</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">Raio máximo (km)</label>
-              <input
-                type="number"
-                value={radiusKm}
-                onChange={(e) => setRadiusKm(e.target.value)}
-                placeholder="0"
-                className={inputCls}
-              />
-              <p className="mt-1 text-xs text-neutral-400">0 = sem limite de raio</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">Latitude</label>
-              <input
-                value={locLat}
-                onChange={(e) => setLocLat(e.target.value)}
-                placeholder="-25.430"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">Longitude</label>
-              <input
-                value={locLng}
-                onChange={(e) => setLocLng(e.target.value)}
-                placeholder="-49.271"
-                className={inputCls}
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLocGeocode}
-            disabled={locGeocoding}
-            className="w-full rounded-lg border border-neutral-300 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
-          >
-            {locGeocoding ? 'Buscando…' : 'Preencher lat/lng pelo CEP do cadastro'}
-          </button>
-
-          <div className="flex items-center justify-between pt-1">
-            {locStatus === 'ok' && (
-              <p className="text-sm font-medium text-emerald-600">Salvo com sucesso!</p>
-            )}
-            {locStatus === 'err' && (
-              <p className="text-sm text-red-500">Erro ao salvar. Tente novamente.</p>
-            )}
-            {locStatus !== 'ok' && locStatus !== 'err' && <span />}
-            <button
-              type="button"
-              onClick={saveLoc}
-              disabled={locStatus === 'saving'}
-              className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-            >
-              {locStatus === 'saving' ? 'Salvando…' : 'Salvar localização'}
-            </button>
-          </div>
-        </div>
-      </section>
     </div>
   )
 }
