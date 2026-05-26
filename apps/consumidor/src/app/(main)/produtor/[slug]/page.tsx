@@ -5,10 +5,11 @@ import {
   getHortaById,
   subscribeToCategories,
   subscribeToProducts,
+  subscribeToReviews,
   useCart,
 } from '@marketplace/shared-services'
 import type { CartHorta } from '@marketplace/shared-services'
-import type { Category, Horta, Product, Produtor, ProdutorCertification } from '@marketplace/shared-types'
+import type { Category, Horta, Product, Produtor, ProdutorCertification, Review } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -53,6 +54,7 @@ export default function ProdutorSlugPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [hoursOpen, setHoursOpen] = useState(false)
   const [conflictProduct, setConflictProduct] = useState<Product | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
 
   useEffect(() => {
     if (!slug) return
@@ -82,6 +84,12 @@ export default function ProdutorSlugPage() {
   useEffect(() => {
     if (!produtor?.id) return
     const unsub = subscribeToProducts(produtor.id, setAllProducts)
+    return unsub
+  }, [produtor?.id])
+
+  useEffect(() => {
+    if (!produtor?.id) return
+    const unsub = subscribeToReviews(produtor.id, setReviews)
     return unsub
   }, [produtor?.id])
 
@@ -150,6 +158,10 @@ export default function ProdutorSlugPage() {
     setConflictProduct(null)
     openCart()
   }
+
+  const avgRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : null
 
   const minOrder =
     produtor.minOrderValueInCents === 0
@@ -291,6 +303,13 @@ export default function ProdutorSlugPage() {
           </InfoPill>
 
           {minOrder && <InfoPill>{minOrder}</InfoPill>}
+
+          {avgRating !== null && (
+            <InfoPill>
+              <span className="text-amber-400">★</span>
+              {avgRating.toFixed(1)} ({reviews.length})
+            </InfoPill>
+          )}
         </div>
 
         {/* Certificações */}
@@ -450,6 +469,45 @@ export default function ProdutorSlugPage() {
             )}
           </>
         )}
+        {/* Avaliações */}
+        <div className="mb-10">
+          <h2 className="mb-4 text-base font-bold text-neutral-900">Avaliações</h2>
+          {reviews.length === 0 ? (
+            <p className="text-sm text-neutral-400">
+              Ainda sem avaliações — seja o primeiro a avaliar!
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {reviews.map((review) => (
+                <div key={review.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-neutral-900">{review.authorName}</span>
+                    <span className="text-xs text-neutral-400">
+                      {review.createdAt.toDate().toLocaleDateString('pt-BR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                  <div className="mb-2 flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={star <= review.rating ? 'text-amber-400' : 'text-neutral-200'}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  {review.comment && (
+                    <p className="text-sm text-neutral-600">{review.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

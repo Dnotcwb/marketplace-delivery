@@ -1,8 +1,9 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
+import { subscribeToReviews } from '@marketplace/shared-services'
 import { formatCurrency } from '@marketplace/shared-utils'
-import type { Order } from '@marketplace/shared-types'
+import type { Order, Review } from '@marketplace/shared-types'
 import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { produtor, loading: prodLoading } = useProdutorAtivo()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
+  const [reviews, setReviews] = useState<Review[]>([])
 
   useEffect(() => {
     if (prodLoading || !produtor?.id || produtor.status !== 'approved') {
@@ -87,6 +89,12 @@ export default function DashboardPage() {
 
     return unsub
   }, [prodLoading, produtor])
+
+  useEffect(() => {
+    if (!produtor?.id || produtor.status !== 'approved') return
+    const unsub = subscribeToReviews(produtor.id, setReviews)
+    return unsub
+  }, [produtor?.id, produtor?.status])
 
   if (prodLoading) {
     return (
@@ -208,6 +216,42 @@ export default function DashboardPage() {
           </ul>
         </div>
       )}
+
+      {/* Avaliações recentes */}
+      {reviews.length > 0 && (() => {
+        const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        return (
+          <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-neutral-700">Avaliações recentes</h2>
+              <span className="flex items-center gap-1 text-sm font-semibold text-neutral-900">
+                <span className="text-amber-400">★</span>
+                {avgRating.toFixed(1)}
+                <span className="font-normal text-neutral-400">({reviews.length})</span>
+              </span>
+            </div>
+            <ul className="space-y-3">
+              {reviews.slice(0, 5).map((review) => (
+                <li key={review.id} className="border-t border-neutral-100 pt-3 first:border-t-0 first:pt-0">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-neutral-800">{review.authorName}</span>
+                    <span className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span key={star} className={star <= review.rating ? 'text-amber-400 text-xs' : 'text-neutral-200 text-xs'}>★</span>
+                      ))}
+                    </span>
+                  </div>
+                  {review.comment && (
+                    <p className="text-xs text-neutral-500 line-clamp-2">
+                      {review.comment.length > 100 ? review.comment.slice(0, 100) + '…' : review.comment}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })()}
 
       {/* Atalhos */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">

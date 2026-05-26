@@ -1,8 +1,8 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
-import { useAuth } from '@marketplace/shared-services'
-import type { Order, OrderStatus } from '@marketplace/shared-types'
+import { subscribeToMyOrderReview, submitReview, useAuth } from '@marketplace/shared-services'
+import type { Order, OrderStatus, Review, ReviewRating } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, doc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
@@ -53,6 +53,19 @@ export default function PedidoPage() {
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+
+  const [myReview, setMyReview] = useState<Review | null | undefined>(undefined)
+  const [reviewRating, setReviewRating] = useState<ReviewRating | 0>(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+  const [reviewDone, setReviewDone] = useState(false)
+
+  useEffect(() => {
+    if (!orderId || !user) return
+    const unsub = subscribeToMyOrderReview(orderId, user.uid, (r) => setMyReview(r))
+    return unsub
+  }, [orderId, user])
 
   useEffect(() => {
     if (!orderId || authLoading) return
@@ -149,6 +162,28 @@ export default function PedidoPage() {
       setCancelError('Não foi possível cancelar. Tente novamente ou entre em contato com a horta.')
     } finally {
       setCancelling(false)
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (!order || !user || reviewRating === 0) return
+    setSubmittingReview(true)
+    setReviewError(null)
+    try {
+      await submitReview({
+        authorUid: user.uid,
+        authorName: user.displayName ?? 'Anônimo',
+        produtorId: order.produtorId,
+        produtorName: order.produtorName,
+        orderId: order.id,
+        rating: reviewRating as ReviewRating,
+        comment: reviewComment.trim() || undefined,
+      })
+      setReviewDone(true)
+    } catch {
+      setReviewError('Não foi possível enviar a avaliação. Tente novamente.')
+    } finally {
+      setSubmittingReview(false)
     }
   }
 
@@ -400,6 +435,79 @@ export default function PedidoPage() {
           >
             Cancelar pedido
           </button>
+        </div>
+      )}
+
+      {/* Avaliação — só aparece após entrega */}
+      {order.status === 'delivered' && (
+        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-bold text-neutral-900">Avalie sua experiência</h2>
+
+          {myReview !== undefined && myReview !== null ? (
+            /* Avaliação já enviada — exibição read-only */
+            <div>
+              <div className="mb-2 flex gap-0.5">
+                {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
+                  <span key={s} className={s <= myReview.rating ? 'text-xl text-amber-400' : 'text-xl text-neutral-200'}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              {myReview.comment && (
+                <p className="text-sm text-neutral-600">{myReview.comment}</p>
+              )}
+              <p className="mt-2 text-xs text-neutral-400">Avaliação enviada</p>
+            </div>
+          ) : reviewDone ? (
+            <p className="text-sm font-medium text-emerald-600">Obrigado pela sua avaliação!</p>
+          ) : (
+            /* Formulário de avaliação */
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-xs font-medium text-neutral-500">Sua nota para {order.produtorName}</p>
+                <div className="flex gap-1">
+                  {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setReviewRating(s)}
+                      className={[
+                        'text-3xl transition-colors',
+                        s <= reviewRating ? 'text-amber-400' : 'text-neutral-200 hover:text-amber-200',
+                      ].join(' ')}
+                      aria-label={`${s} estrela${s > 1 ? 's' : ''}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Conte como foi sua experiência (opcional)"
+                  rows={3}
+                  maxLength={500}
+                  className="w-full resize-none rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+                <p className="mt-0.5 text-right text-xs text-neutral-400">{reviewComment.length}/500</p>
+              </div>
+
+              {reviewError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{reviewError}</p>
+              )}
+
+              <button
+                onClick={handleSubmitReview}
+                disabled={reviewRating === 0 || submittingReview}
+                className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submittingReview ? 'Enviando…' : 'Enviar avaliação'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
