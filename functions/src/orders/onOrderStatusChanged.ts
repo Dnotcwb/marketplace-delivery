@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
+import { sendPushToUser } from '../notifications/sendPush'
 
 // Mensagens enviadas ao cliente quando o status do pedido muda
 const CUSTOMER_MESSAGES: Record<string, string> = {
@@ -18,6 +19,17 @@ const PRODUTOR_MESSAGES: Record<string, string> = {
   cancelled:   'Pedido cancelado.',
   delivered:   'Pedido entregue com sucesso.',
   on_delivery: 'Entregador a caminho do cliente.',
+}
+
+// Títulos FCM para push ao consumidor
+const CUSTOMER_PUSH_TITLES: Record<string, string> = {
+  confirmed:   'Pedido confirmado ✅',
+  preparing:   'Preparando seu pedido 👩‍🍳',
+  ready:       'Pedido pronto! 📦',
+  on_delivery: 'Saiu para entrega! 🛵',
+  delivered:   'Pedido entregue! 🎉',
+  cancelled:   'Pedido cancelado',
+  refunded:    'Reembolso processado',
 }
 
 export const onOrderStatusChanged = onDocumentUpdated(
@@ -53,23 +65,37 @@ export const onOrderStatusChanged = onDocumentUpdated(
           createdAt:   admin.firestore.FieldValue.serverTimestamp(),
         }),
       )
+
+      const pushTitle = CUSTOMER_PUSH_TITLES[newStatus]
+      if (pushTitle) {
+        tasks.push(
+          sendPushToUser(db, customerId, { title: pushTitle, body: customerMsg }, {
+            url: `/pedido/${orderId}`,
+          }),
+        )
+      }
     }
 
     // ── Notificação para o produtor ─────────────────────────────
     const produtorMsg = PRODUTOR_MESSAGES[newStatus]
+    let ownerUid: string | undefined
     if (produtorId && produtorMsg) {
       const produtorSnap = await db.collection('produtores').doc(produtorId).get()
-      const ownerUid = produtorSnap.data()?.['ownerUid'] as string | undefined
+      ownerUid = produtorSnap.data()?.['ownerUid'] as string | undefined
       if (ownerUid) {
+        const fullMsg = `${produtorMsg} Pedido de ${customerName} (#${orderId.slice(0, 8).toUpperCase()})`
         tasks.push(
           db.collection('users').doc(ownerUid).collection('notifications').add({
             type:      'order_status',
             orderId,
             status:    newStatus,
-            message:   `${produtorMsg} Pedido de ${customerName} (#${orderId.slice(0, 8).toUpperCase()})`,
+            message:   fullMsg,
             read:      false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           }),
+        )
+        tasks.push(
+          sendPushToUser(db, ownerUid, { title: 'Atualização de pedido', body: fullMsg }),
         )
       }
     }

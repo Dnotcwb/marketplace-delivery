@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin'
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
+import { sendPushToUser } from '../notifications/sendPush'
 
 function centsToBrl(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
@@ -31,6 +32,8 @@ export const onOrderCreated = onDocumentCreated(
     const ownerUid = produtorSnap.data()?.['ownerUid'] as string | undefined
     if (!ownerUid) return
 
+    const msg = `Novo pedido de ${customerName} — ${centsToBrl(totalInCents)}`
+
     await db
       .collection('users')
       .doc(ownerUid)
@@ -39,10 +42,16 @@ export const onOrderCreated = onDocumentCreated(
         type:      'new_order',
         orderId,
         status:    'pending',
-        message:   `Novo pedido de ${customerName} — ${centsToBrl(totalInCents)}`,
+        message:   msg,
         read:      false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       })
+
+    await sendPushToUser(
+      db,
+      ownerUid,
+      { title: 'Novo pedido! 🌿', body: msg },
+    )
 
     console.log(`onOrderCreated: pedido ${orderId} notificou produtor ${ownerUid}`)
   },
