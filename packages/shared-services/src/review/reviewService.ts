@@ -3,6 +3,7 @@ import type { Review, ReviewRating } from '@marketplace/shared-types'
 import {
   addDoc,
   collection,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -79,6 +80,18 @@ export async function submitReview(data: {
     updatedAt: serverTimestamp(),
   })
   return ref.id
+}
+
+export async function listReviews(produtorId: string, limitCount = 20): Promise<Review[]> {
+  const q = query(
+    collection(firestore, COL),
+    where('produtorId', '==', produtorId),
+    where('deleted', '==', false),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount),
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Review)
 }
 
 export async function deleteReview(reviewId: string): Promise<void> {

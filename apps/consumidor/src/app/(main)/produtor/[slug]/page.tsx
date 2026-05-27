@@ -1,21 +1,21 @@
-'use client'
-
+import { cache } from 'react'
+import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
+import Image from 'next/image'
+import Link from 'next/link'
 import {
   getProdutorBySlug,
   getHortaById,
-  subscribeToCategories,
-  subscribeToProducts,
-  subscribeToReviews,
-  useCart,
+  listCategories,
+  listProducts,
+  listProdutoresAprovados,
+  listReviews,
 } from '@marketplace/shared-services'
-import type { CartHorta } from '@marketplace/shared-services'
-import type { Category, Horta, Product, Produtor, ProdutorCertification, Review } from '@marketplace/shared-types'
-import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import Image from 'next/image'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import type { ProdutorCertification } from '@marketplace/shared-types'
+import ProdutorCatalog from '@/components/ProdutorCatalog'
+
+export const revalidate = 60
+export const dynamicParams = true
 
 const CERT_LABELS: Record<ProdutorCertification, string> = {
   organico: 'Orgânico',
@@ -27,155 +27,76 @@ const CERT_LABELS: Record<ProdutorCertification, string> = {
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-function InfoPill({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
-  return (
-    <span
-      className={[
-        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
-        accent
-          ? 'bg-emerald-100 text-emerald-700'
-          : 'bg-neutral-100 text-neutral-600',
-      ].join(' ')}
-    >
-      {children}
-    </span>
-  )
+const getProdutor = cache(async (slug: string) => getProdutorBySlug(slug))
+
+export async function generateStaticParams() {
+  const produtores = await listProdutoresAprovados()
+  return produtores.map((p) => ({ slug: p.slug }))
 }
 
-export default function ProdutorSlugPage() {
-  const params = useParams()
-  const slug = typeof params.slug === 'string' ? params.slug : ''
-  const { addItem, clearCart, openCart } = useCart()
-
-  const [produtor, setProdutor] = useState<Produtor | null | undefined>(undefined)
-  const [horta, setHorta] = useState<Horta | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [allProducts, setAllProducts] = useState<Product[]>([])
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
-  const [hoursOpen, setHoursOpen] = useState(false)
-  const [conflictProduct, setConflictProduct] = useState<Product | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
-
-  useEffect(() => {
-    if (!slug) return
-    getProdutorBySlug(slug).then((p) => setProdutor(p ?? null))
-  }, [slug])
-
-  // Carrega a Horta quando o produtor é encontrado
-  useEffect(() => {
-    if (!produtor) return
-    if (produtor.hortaId) {
-      getHortaById(produtor.hortaId).then(setHorta)
-    } else {
-      // Produtor sem horta associada — usa ele mesmo como horta virtual
-      setHorta(null)
-    }
-  }, [produtor?.id, produtor?.hortaId])
-
-  useEffect(() => {
-    if (!produtor?.id) return
-    const unsub = subscribeToCategories(produtor.id, (cats) => {
-      setCategories(cats)
-      setActiveCategoryId((prev) => prev ?? cats[0]?.id ?? null)
-    })
-    return unsub
-  }, [produtor?.id])
-
-  useEffect(() => {
-    if (!produtor?.id) return
-    const unsub = subscribeToProducts(produtor.id, setAllProducts)
-    return unsub
-  }, [produtor?.id])
-
-  useEffect(() => {
-    if (!produtor?.id) return
-    const unsub = subscribeToReviews(produtor.id, setReviews)
-    return unsub
-  }, [produtor?.id])
-
-  // undefined = carregando; null = não encontrado
-  if (produtor === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-      </div>
-    )
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+  const produtor = await getProdutor(slug)
+  if (!produtor) return {}
+  const description =
+    produtor.description || `Produtos frescos direto do campo, de ${produtor.name}.`
+  return {
+    title: produtor.name,
+    description,
+    openGraph: {
+      title: produtor.name,
+      description,
+      images: produtor.bannerUrl ? [produtor.bannerUrl] : [],
+    },
   }
+}
 
-  if (produtor === null) {
-    notFound()
-  }
+export default async function ProdutorSlugPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  const produtor = await getProdutor(slug)
+  if (!produtor) notFound()
 
-  const products = allProducts.filter((p) => p.categoryId === activeCategoryId)
+  const [horta, categories, allProducts, reviews] = await Promise.all([
+    produtor.hortaId ? getHortaById(produtor.hortaId) : null,
+    listCategories(produtor.id),
+    listProducts(produtor.id),
+    listReviews(produtor.id),
+  ])
 
-  function buildCartHorta(): CartHorta {
-    // Se o produtor pertence a uma Horta, usa os dados da Horta.
-    // Caso contrário, usa o próprio produtor como horta virtual (backward compat).
-    if (horta) {
-      return {
-        id: horta.id,
-        slug: horta.slug,
-        name: horta.name,
-        deliveryFeeInCents: horta.deliveryFeeInCents,
-        ...(horta.deliveryFeePerKmInCents ? { deliveryFeePerKmInCents: horta.deliveryFeePerKmInCents } : {}),
-        ...(horta.deliveryRadiusKm != null ? { deliveryRadiusKm: horta.deliveryRadiusKm } : {}),
-        ...(horta.lat ? { lat: horta.lat } : {}),
-        ...(horta.lng ? { lng: horta.lng } : {}),
-        minOrderValueInCents: horta.minOrderValueInCents,
-        estimatedDeliveryTimeMin: horta.estimatedDeliveryTimeMin,
-        estimatedDeliveryTimeMax: horta.estimatedDeliveryTimeMax,
-      }
-    }
-    return {
-      id: produtor!.id,
-      slug: produtor!.slug,
-      name: produtor!.name,
-      deliveryFeeInCents: produtor!.deliveryFeeInCents,
-      minOrderValueInCents: produtor!.minOrderValueInCents,
-      estimatedDeliveryTimeMin: produtor!.estimatedDeliveryTimeMin,
-      estimatedDeliveryTimeMax: produtor!.estimatedDeliveryTimeMax,
-    }
-  }
-
-  function handleAddItem(product: Product) {
-    if (!produtor) return
-    const result = addItem(
-      product,
-      { id: produtor.id, name: produtor.name },
-      buildCartHorta(),
-    )
-    if (result === 'conflict') {
-      setConflictProduct(product)
-    } else {
-      openCart()
-    }
-  }
-
-  function handleConflictConfirm() {
-    if (!conflictProduct || !produtor) return
-    clearCart()
-    addItem(conflictProduct, { id: produtor.id, name: produtor.name }, buildCartHorta())
-    setConflictProduct(null)
-    openCart()
-  }
-
-  const avgRating = reviews.length > 0
-    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+  // Strip Firestore Timestamps — not JSON-serializable for Server→Client props
+  const { createdAt: _pca, updatedAt: _pua, ...sp } = produtor
+  const serializableCategories = categories.map(({ createdAt: _c, updatedAt: _u, ...r }) => r)
+  const serializableProducts = allProducts.map(({ createdAt: _c, updatedAt: _u, ...r }) => r)
+  const serializableHorta = horta
+    ? (({ createdAt: _c, updatedAt: _u, ...r }) => r)(horta)
     : null
 
-  const minOrder =
-    produtor.minOrderValueInCents === 0
-      ? null
-      : `Pedido mínimo R$ ${(produtor.minOrderValueInCents / 100).toFixed(2).replace('.', ',')}`
+  const avgRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : null
 
   const feeLabel =
     produtor.deliveryFeeInCents === 0
       ? 'Entrega grátis'
       : `Entrega R$ ${(produtor.deliveryFeeInCents / 100).toFixed(2).replace('.', ',')}`
 
+  const minOrder =
+    produtor.minOrderValueInCents === 0
+      ? null
+      : `Pedido mínimo R$ ${(produtor.minOrderValueInCents / 100).toFixed(2).replace('.', ',')}`
+
   return (
     <div>
-      {/* Banner de horta — exibido quando o produtor pertence a uma horta */}
+      {/* Banner de horta */}
       {horta && (
         <div className="border-b border-brand-100 bg-brand-50 px-4 py-3">
           <p className="mx-auto max-w-4xl text-sm text-brand-700">
@@ -185,7 +106,12 @@ export default function ProdutorSlugPage() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             Este produtor faz parte da{' '}
             <Link
@@ -196,32 +122,6 @@ export default function ProdutorSlugPage() {
             </Link>
             {' '}— compre de vários produtores em um só pedido.
           </p>
-        </div>
-      )}
-
-      {/* Modal de conflito de produtor */}
-      {conflictProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="mb-2 text-lg font-bold text-neutral-900">Trocar de horta?</h2>
-            <p className="mb-5 text-sm text-neutral-500">
-              Seu carrinho tem itens de outra horta. Ao continuar, os itens anteriores serão removidos.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConflictProduct(null)}
-                className="flex-1 rounded-xl border border-neutral-300 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConflictConfirm}
-                className="flex-1 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
-              >
-                Trocar
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -243,9 +143,8 @@ export default function ProdutorSlugPage() {
         )}
       </div>
 
-      {/* Cabeçalho do produtor */}
       <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6">
-        {/* Logo */}
+        {/* Logo + nome */}
         <div className="-mt-10 mb-4 flex items-end gap-4">
           <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border-4 border-white shadow-md">
             {produtor.logoUrl ? (
@@ -270,45 +169,46 @@ export default function ProdutorSlugPage() {
           </div>
         </div>
 
-        {/* Descrição */}
         {produtor.description && (
           <p className="mb-4 text-sm text-neutral-600">{produtor.description}</p>
         )}
 
         {/* Pills de info */}
         <div className="mb-4 flex flex-wrap gap-2">
-          <InfoPill accent={produtor.isOpen}>
+          <span
+            className={[
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
+              produtor.isOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600',
+            ].join(' ')}
+          >
             <span
-              className={[
-                'h-1.5 w-1.5 rounded-full',
-                produtor.isOpen ? 'bg-emerald-500' : 'bg-neutral-400',
-              ].join(' ')}
+              className={['h-1.5 w-1.5 rounded-full', produtor.isOpen ? 'bg-emerald-500' : 'bg-neutral-400'].join(' ')}
               aria-hidden="true"
             />
             {produtor.isOpen ? 'Aberto agora' : 'Fechado'}
-          </InfoPill>
-
-          <InfoPill>
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             {produtor.estimatedDeliveryTimeMin}–{produtor.estimatedDeliveryTimeMax} min
-          </InfoPill>
-
-          <InfoPill>
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1.33 9.326A2 2 0 008.32 19h7.36a2 2 0 001.99-1.674L19 8" />
             </svg>
             {feeLabel}
-          </InfoPill>
-
-          {minOrder && <InfoPill>{minOrder}</InfoPill>}
-
+          </span>
+          {minOrder && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+              {minOrder}
+            </span>
+          )}
           {avgRating !== null && (
-            <InfoPill>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               <span className="text-amber-400">★</span>
               {avgRating.toFixed(1)} ({reviews.length})
-            </InfoPill>
+            </span>
           )}
         </div>
 
@@ -326,150 +226,45 @@ export default function ProdutorSlugPage() {
           </div>
         )}
 
-        {/* Horários (colapsável) */}
-        <div className="mb-6 rounded-xl border border-neutral-200 bg-white">
-          <button
-            type="button"
-            onClick={() => setHoursOpen((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-neutral-700"
-            aria-expanded={hoursOpen}
-          >
+        {/* Horários — <details> nativo, sem JS */}
+        <details className="mb-6 rounded-xl border border-neutral-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-neutral-700 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-2">
               <svg className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Horários de atendimento
             </span>
-            <svg
-              className={['h-4 w-4 text-neutral-400 transition-transform', hoursOpen ? 'rotate-180' : ''].join(' ')}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
-          </button>
-
-          {hoursOpen && (
-            <div className="border-t border-neutral-100 px-4 py-2">
-              {produtor.openingHours.map((h) => (
-                <div
-                  key={h.dayOfWeek}
-                  className="flex items-center justify-between py-1.5 text-sm"
-                >
-                  <span className={h.open ? 'font-medium text-neutral-900' : 'text-neutral-400'}>
-                    {DAYS[h.dayOfWeek]}
-                  </span>
-                  <span className={h.open ? 'text-neutral-700' : 'text-neutral-400'}>
-                    {h.open ? `${h.openTime} – ${h.closeTime}` : 'Fechado'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Catálogo */}
-        {categories.length === 0 ? (
-          <div className="py-10 text-center text-sm text-neutral-400">
-            Este produtor ainda não cadastrou produtos.
+          </summary>
+          <div className="border-t border-neutral-100 px-4 py-2">
+            {produtor.openingHours.map((h) => (
+              <div
+                key={h.dayOfWeek}
+                className="flex items-center justify-between py-1.5 text-sm"
+              >
+                <span className={h.open ? 'font-medium text-neutral-900' : 'text-neutral-400'}>
+                  {DAYS[h.dayOfWeek]}
+                </span>
+                <span className={h.open ? 'text-neutral-700' : 'text-neutral-400'}>
+                  {h.open ? `${h.openTime} – ${h.closeTime}` : 'Fechado'}
+                </span>
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            {/* Tabs de categoria */}
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setActiveCategoryId(cat.id)}
-                  className={[
-                    'flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-                    activeCategoryId === cat.id
-                      ? 'bg-brand-500 text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-600 hover:border-brand-400',
-                  ].join(' ')}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
+        </details>
 
-            {/* Produtos */}
-            {products.length === 0 ? (
-              <div className="py-10 text-center text-sm text-neutral-400">
-                Nenhum produto nesta categoria.
-              </div>
-            ) : (
-              <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {products.filter((p) => p.available).map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm"
-                  >
-                    {/* Foto */}
-                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
-                      {product.photoUrl ? (
-                        <Image
-                          src={product.photoUrl}
-                          alt={product.name}
-                          width={64}
-                          height={64}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl">
-                          🥬
-                        </div>
-                      )}
-                    </div>
+        {/* Catálogo interativo (Client island) */}
+        <ProdutorCatalog
+          produtor={sp}
+          initialCategories={serializableCategories}
+          initialProducts={serializableProducts}
+          horta={serializableHorta}
+        />
 
-                    {/* Info */}
-                    <div className="flex-1 overflow-hidden">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-neutral-900">
-                          {product.name}
-                        </p>
-                        {product.isOrganic && (
-                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
-                            Org.
-                          </span>
-                        )}
-                      </div>
-                      {product.description && (
-                        <p className="truncate text-xs text-neutral-500">{product.description}</p>
-                      )}
-                      <p className="mt-1 text-sm font-bold text-brand-600">
-                        {(product.priceInCents / 100).toLocaleString('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        })}
-                        <span className="ml-1 text-xs font-normal text-neutral-400">
-                          / {PRODUCT_UNIT_LABELS[product.unit]}
-                        </span>
-                      </p>
-                    </div>
-
-                    {/* Botão adicionar */}
-                    <button
-                      type="button"
-                      onClick={() => handleAddItem(product)}
-                      disabled={!produtor.isOpen}
-                      title={produtor.isOpen ? 'Adicionar ao carrinho' : 'Produtor fechado no momento'}
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label={`Adicionar ${product.name} ao carrinho`}
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {/* Avaliações */}
+        {/* Avaliações (estáticas — SSR) */}
         <div className="mb-10">
           <h2 className="mb-4 text-base font-bold text-neutral-900">Avaliações</h2>
           {reviews.length === 0 ? (
@@ -479,9 +274,14 @@ export default function ProdutorSlugPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {reviews.map((review) => (
-                <div key={review.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div
+                  key={review.id}
+                  className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+                >
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-neutral-900">{review.authorName}</span>
+                    <span className="text-sm font-semibold text-neutral-900">
+                      {review.authorName}
+                    </span>
                     <span className="text-xs text-neutral-400">
                       {review.createdAt.toDate().toLocaleDateString('pt-BR', {
                         day: 'numeric',
