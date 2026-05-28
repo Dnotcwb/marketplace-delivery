@@ -42,6 +42,14 @@ function formatTimestamp(ts: Timestamp | null | undefined): string {
   }
 }
 
+function formatTimeAgo(ts: Timestamp): string {
+  const diffSec = Math.floor((Date.now() - ts.toDate().getTime()) / 1000)
+  if (diffSec < 60) return `há ${diffSec}s`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `há ${diffMin} min`
+  return `há ${Math.floor(diffMin / 60)}h`
+}
+
 export default function PedidoPage() {
   const params = useParams()
   const orderId = typeof params.orderId === 'string' ? params.orderId : ''
@@ -336,6 +344,59 @@ export default function PedidoPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Rastreamento em tempo real — visível durante a entrega */}
+      {order.status === 'on_delivery' && (
+        <div className="mb-6 overflow-hidden rounded-2xl border-2 border-brand-300 bg-brand-50">
+          {/* Banner animado */}
+          <div className="flex items-center gap-3 px-5 py-4">
+            <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-50" />
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-xl">
+                🛵
+              </span>
+            </span>
+            <div className="flex-1">
+              <p className="font-bold text-brand-800">Entregador a caminho!</p>
+              <p className="text-sm text-brand-600">
+                Previsão: {order.estimatedDeliveryTimeMin}–{order.estimatedDeliveryTimeMax} min
+              </p>
+            </div>
+          </div>
+
+          {/* Localização */}
+          <div className="border-t border-brand-200 px-5 py-3">
+            {order.driverLocation ? (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-brand-700">Localização do entregador</p>
+                  {order.driverLocationUpdatedAt && (
+                    <p className="text-xs text-brand-400">
+                      Atualizado {formatTimeAgo(order.driverLocationUpdatedAt)}
+                    </p>
+                  )}
+                </div>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${order.driverLocation.lat},${order.driverLocation.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Ver no mapa
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs text-brand-500">
+                Aguardando localização do entregador…
+              </p>
+            )}
           </div>
         </div>
       )}

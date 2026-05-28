@@ -7,7 +7,7 @@ import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, doc, Timestamp, updateDoc } from 'firebase/firestore'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { subscribeToOrder } from '@/lib/orderSubscriptions'
 
 export default function EntregaDetailPage() {
@@ -18,6 +18,7 @@ export default function EntregaDetailPage() {
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState('')
+  const lastLocationWrite = useRef(0)
 
   useEffect(() => {
     if (!orderId) return
@@ -26,6 +27,38 @@ export default function EntregaDetailPage() {
       setLoading(false)
     })
   }, [orderId])
+
+  // Envia localização do entregador para o Firestore a cada 15s enquanto em rota
+  useEffect(() => {
+    if (!order || order.status !== 'on_delivery') return
+    if (!user || order.deliveryDriverId !== user.uid) return
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+
+    const THROTTLE_MS = 15_000
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const now = Date.now()
+        if (now - lastLocationWrite.current < THROTTLE_MS) return
+        lastLocationWrite.current = now
+        try {
+          await updateDoc(doc(firestore, 'orders', order.id), {
+            driverLocation: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            },
+            driverLocationUpdatedAt: Timestamp.now(),
+          })
+        } catch {
+          // silently ignore — não bloqueia o fluxo principal
+        }
+      },
+      (err) => console.warn('geolocation:', err.code, err.message),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 },
+    )
+
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [order?.status, order?.id, order?.deliveryDriverId, user?.uid])
 
   async function handleConfirmDelivered() {
     if (!order || !user) return

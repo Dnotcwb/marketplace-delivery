@@ -215,6 +215,8 @@ export interface Order {
   statusHistory: StatusHistoryEntry[]
 
   deliveryDriverId?: string
+  driverLocation?: { lat: number; lng: number }
+  driverLocationUpdatedAt?: Timestamp
   notes?: string
 
   estimatedDeliveryTimeMin: number
