@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { sendPushToUser } from '../notifications/sendPush'
+import { sendPushToOnlineDrivers, sendPushToUser } from '../notifications/sendPush'
 
 // Mensagens enviadas ao cliente quando o status do pedido muda
 const CUSTOMER_MESSAGES: Record<string, string> = {
@@ -98,6 +98,22 @@ export const onOrderStatusChanged = onDocumentUpdated(
           sendPushToUser(db, ownerUid, { title: 'Atualização de pedido', body: fullMsg }),
         )
       }
+    }
+
+    // ── Notificação para entregadores online quando pedido fica pronto ──
+    if (newStatus === 'ready') {
+      const hortaName = after['hortaName'] as string | undefined
+      const origem = hortaName ?? produtorName ?? 'Horta'
+      tasks.push(
+        sendPushToOnlineDrivers(
+          db,
+          {
+            title: 'Novo pedido disponível! 🛵',
+            body: `Pedido pronto para retirada em ${origem}`,
+          },
+          { url: '/' },
+        ),
+      )
     }
 
     // ── Propagar status para pedidos_filhos ────────────────────

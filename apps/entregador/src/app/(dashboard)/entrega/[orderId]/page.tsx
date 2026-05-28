@@ -102,7 +102,23 @@ export default function EntregaDetailPage() {
 
       {/* Endereço de entrega */}
       <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-bold text-neutral-700">Endereço de entrega</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-neutral-700">Endereço de entrega</h2>
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+              `${order.deliveryAddress.street}, ${order.deliveryAddress.number}, ${order.deliveryAddress.neighborhood}, ${order.deliveryAddress.city} - ${order.deliveryAddress.state}, ${order.deliveryAddress.cep}`,
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Abrir rota
+          </a>
+        </div>
         <p className="font-medium text-neutral-900">{order.deliveryAddress.recipientName}</p>
         <p className="text-sm text-neutral-600 mt-0.5">
           {order.deliveryAddress.street}, {order.deliveryAddress.number}

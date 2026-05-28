@@ -13,6 +13,7 @@ export interface DeliveryDriver {
   vehiclePlate?: string
   photoUrl?: string
   status: DriverStatus
+  isOnline?: boolean
   approvedAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp

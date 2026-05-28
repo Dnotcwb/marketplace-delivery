@@ -1,9 +1,10 @@
 'use client'
 
-import { functions } from '@marketplace/shared-firebase'
+import { firestore, functions } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
-import type { Order } from '@marketplace/shared-types'
+import type { DeliveryDriver, Order } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
+import { doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useEffect, useState } from 'react'
 import { subscribeToDriverOrders, subscribeToReadyOrders } from '@/lib/orderSubscriptions'
@@ -15,13 +16,23 @@ const acceptDeliveryFn = httpsCallable<{ orderId: string }, { success: boolean }
 
 export default function HomePage() {
   const { user } = useAuth()
+  const [driver, setDriver] = useState<DeliveryDriver | null>(null)
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [driverOrders, setDriverOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [accepting, setAccepting] = useState<string | null>(null)
+  const [togglingOnline, setTogglingOnline] = useState(false)
   const [error, setError] = useState('')
   const [permissionError, setPermissionError] = useState(false)
   const [queryError, setQueryError] = useState('')
+
+  // Subscreve o perfil do entregador para obter isOnline em tempo real
+  useEffect(() => {
+    if (!user) return
+    return onSnapshot(doc(firestore, 'deliveryDrivers', user.uid), (snap) => {
+      setDriver(snap.exists() ? (snap.data() as DeliveryDriver) : null)
+    })
+  }, [user?.uid])
 
   useEffect(() => {
     if (!user) return
@@ -64,11 +75,26 @@ export default function HomePage() {
     )
 
     return () => { unsubReady(); unsubDriver() }
-  }, [user])
+  }, [user?.uid])
 
+  const isOnline = driver?.isOnline ?? false
   const activeDelivery = driverOrders.find((o) => o.status === 'on_delivery')
-  // Filter client-side: unclaimed orders
   const available = readyOrders.filter((o) => !o.deliveryDriverId)
+
+  async function handleToggleOnline() {
+    if (!user) return
+    setTogglingOnline(true)
+    try {
+      await updateDoc(doc(firestore, 'deliveryDrivers', user.uid), {
+        isOnline: !isOnline,
+        updatedAt: serverTimestamp(),
+      })
+    } catch {
+      setError('Não foi possível alterar o status. Tente novamente.')
+    } finally {
+      setTogglingOnline(false)
+    }
+  }
 
   async function handleAccept(orderId: string) {
     setAccepting(orderId)
@@ -85,7 +111,44 @@ export default function HomePage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      {/* Entrega ativa */}
+      {/* Toggle online/offline */}
+      <div
+        className={[
+          'flex items-center justify-between rounded-xl border px-4 py-3',
+          isOnline
+            ? 'border-emerald-200 bg-emerald-50'
+            : 'border-neutral-200 bg-white',
+        ].join(' ')}
+      >
+        <div>
+          <p className={['text-sm font-bold', isOnline ? 'text-emerald-700' : 'text-neutral-600'].join(' ')}>
+            {isOnline ? 'Você está online' : 'Você está offline'}
+          </p>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            {isOnline
+              ? 'Recebendo novos pedidos e notificações'
+              : 'Ative para receber pedidos e notificações'}
+          </p>
+        </div>
+        <button
+          onClick={handleToggleOnline}
+          disabled={togglingOnline}
+          aria-label={isOnline ? 'Ficar offline' : 'Ficar online'}
+          className={[
+            'relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-60',
+            isOnline ? 'bg-emerald-500' : 'bg-neutral-300',
+          ].join(' ')}
+        >
+          <span
+            className={[
+              'pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200',
+              isOnline ? 'translate-x-5' : 'translate-x-0',
+            ].join(' ')}
+          />
+        </button>
+      </div>
+
+      {/* Entrega ativa — sempre visível independente do status online */}
       {activeDelivery && (
         <section>
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
@@ -121,7 +184,7 @@ export default function HomePage() {
           <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">
             Entregas disponíveis
           </h2>
-          {!loading && (
+          {!loading && isOnline && (
             <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-600">
               {available.length}
             </span>
@@ -134,7 +197,15 @@ export default function HomePage() {
           </div>
         )}
 
-        {queryError && (
+        {!isOnline ? (
+          <div className="rounded-xl border border-neutral-200 bg-white px-5 py-12 text-center shadow-sm">
+            <div className="mb-3 text-4xl">😴</div>
+            <p className="font-medium text-neutral-700">Você está offline</p>
+            <p className="mt-1 text-sm text-neutral-400">
+              Ative o botão acima para começar a receber pedidos.
+            </p>
+          </div>
+        ) : queryError ? (
           <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             <p className="font-medium">Erro ao carregar pedidos</p>
             <p className="mt-0.5 text-xs font-mono">{queryError}</p>
@@ -142,9 +213,7 @@ export default function HomePage() {
               Recarregar
             </button>
           </div>
-        )}
-
-        {loading ? (
+        ) : loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
           </div>
@@ -180,7 +249,7 @@ export default function HomePage() {
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-bold text-neutral-900">{order.produtorName}</p>
-                    <p className="mt-0.5 text-sm text-neutral-500 truncate">
+                    <p className="mt-0.5 truncate text-sm text-neutral-500">
                       {order.deliveryAddress.street}, {order.deliveryAddress.number}
                       {order.deliveryAddress.complement ? `, ${order.deliveryAddress.complement}` : ''}
                     </p>
