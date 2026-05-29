@@ -68,7 +68,7 @@ export default async function HortaSlugPage({
   // Strip Timestamps para serialização Server→Client
   const { createdAt: _hca, updatedAt: _hua, ...sh } = horta
   const serializableProdutores = produtoresRaw.map(
-    ({ createdAt: _c, updatedAt: _u, ...r }) => r,
+    ({ createdAt: _c, updatedAt: _u, approvedAt: _a, rejectedAt: _r, ...r }) => r,
   )
   const serializableCategories = initialCategories.map(
     ({ createdAt: _c, updatedAt: _u, ...r }) => r,
