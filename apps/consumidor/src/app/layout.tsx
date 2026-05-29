@@ -1,6 +1,7 @@
 import { AuthProvider } from '@marketplace/shared-services'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
 import './globals.css'
 
 const inter = Inter({
@@ -22,7 +23,14 @@ export const metadata: Metadata = {
     description: 'Compre direto de produtores e hortas urbanas da sua região.',
     type: 'website',
     locale: 'pt_BR',
+    images: [{ url: '/logo.png', width: 512, height: 512 }],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Ambiente Livre',
+  },
+  formatDetection: { telephone: false },
 }
 
 export default function RootLayout({
@@ -33,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-white text-neutral-900 antialiased">
+        <ServiceWorkerRegistrar />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

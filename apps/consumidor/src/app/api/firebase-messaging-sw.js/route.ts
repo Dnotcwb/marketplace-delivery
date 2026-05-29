@@ -22,8 +22,8 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification ?? {};
   self.registration.showNotification(title ?? 'Ambiente Livre', {
     body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/logo.png',
+    badge: '/logo.png',
     data: payload.data,
   });
 });
@@ -34,6 +34,11 @@ self.addEventListener('notificationclick', (event) => {
   if (url) {
     event.waitUntil(clients.openWindow(url));
   }
+});
+
+// Minimal fetch handler — required for PWA installability
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
 `
 

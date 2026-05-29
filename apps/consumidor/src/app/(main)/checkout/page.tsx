@@ -3,10 +3,14 @@
 import { firestore, functions } from '@marketplace/shared-firebase'
 import {
   createAddress,
+  deleteAddress,
   listAddresses,
+  updateAddress,
   useAuth,
   useCart,
+  validateCoupon,
 } from '@marketplace/shared-services'
+import type { CouponPreview } from '@marketplace/shared-services'
 import type { Address } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { calcDeliveryFee, formatCurrency } from '@marketplace/shared-utils'
@@ -42,6 +46,7 @@ const blankAddress = {
   street: '',
   number: '',
   complement: '',
+  reference: '',
   neighborhood: '',
   city: '',
   state: '',
@@ -101,6 +106,9 @@ export default function CheckoutPage() {
   const [addressForm, setAddressForm] = useState<AddressForm>(blankAddress)
   const [cepLoading, setCepLoading] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<AddressForm>(blankAddress)
+  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(null)
 
   // Frete dinâmico
   const [dynamicFeeInCents, setDynamicFeeInCents] = useState<number | null>(null)
@@ -112,6 +120,9 @@ export default function CheckoutPage() {
   // Pagamento
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [couponCode, setCouponCode] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponPreview | null>(null)
+  const [couponError, setCouponError] = useState('')
 
   // Envio
   const [pageState, setPageState] = useState<'form' | 'submitting' | 'pix' | 'done'>('form')
@@ -207,7 +218,8 @@ export default function CheckoutPage() {
   if (authLoading || !user || !horta) return null
 
   const deliveryFeeInCents = dynamicFeeInCents ?? horta.deliveryFeeInCents
-  const totalInCents = subtotalInCents + deliveryFeeInCents
+  const discountInCents = appliedCoupon?.discountInCents ?? 0
+  const totalInCents = Math.max(0, subtotalInCents + deliveryFeeInCents - discountInCents)
 
   // ── CEP lookup ──────────────────────────────────────
 
@@ -232,6 +244,8 @@ export default function CheckoutPage() {
     setSavingAddress(true)
     setError(null)
     try {
+      const forceDefault = addresses.length === 0
+      const shouldBeDefault = forceDefault || addressForm.isDefault
       const id = await createAddress(user.uid, {
         label,
         recipientName,
@@ -240,10 +254,11 @@ export default function CheckoutPage() {
         street,
         number,
         complement: addressForm.complement || undefined,
+        reference: addressForm.reference || undefined,
         neighborhood,
         city,
         state,
-        isDefault: addresses.length === 0,
+        isDefault: shouldBeDefault,
       })
       const newAddress: Address = {
         id,
@@ -257,12 +272,16 @@ export default function CheckoutPage() {
         neighborhood,
         city,
         state,
-        isDefault: addresses.length === 0,
+        isDefault: shouldBeDefault,
         createdAt: null as unknown as import('firebase/firestore').Timestamp,
         updatedAt: null as unknown as import('firebase/firestore').Timestamp,
         ...(addressForm.complement ? { complement: addressForm.complement } : {}),
+        ...(addressForm.reference ? { reference: addressForm.reference } : {}),
       }
-      setAddresses((prev) => [...prev, newAddress])
+      setAddresses((prev) => {
+        const updated = shouldBeDefault ? prev.map((a) => ({ ...a, isDefault: false })) : prev
+        return [...updated, newAddress]
+      })
       setSelectedAddressId(id)
       setShowNewAddress(false)
       setAddressForm(blankAddress)
@@ -270,6 +289,109 @@ export default function CheckoutPage() {
       setError('Erro ao salvar endereço. Tente novamente.')
     } finally {
       setSavingAddress(false)
+    }
+  }
+
+  // ── Deletar endereço ───────────────────────────────
+
+  async function handleDeleteAddress(id: string) {
+    if (!user) return
+    setDeletingAddressId(id)
+    try {
+      await deleteAddress(user.uid, id)
+      setAddresses((prev) => {
+        const remaining = prev.filter((a) => a.id !== id)
+        if (selectedAddressId === id) setSelectedAddressId(remaining[0]?.id ?? null)
+        return remaining
+      })
+      if (editingAddressId === id) setEditingAddressId(null)
+    } catch {
+      setError('Não foi possível remover o endereço.')
+    } finally {
+      setDeletingAddressId(null)
+    }
+  }
+
+  // ── Editar endereço ────────────────────────────────
+
+  function handleStartEdit(addr: Address) {
+    setShowNewAddress(false)
+    setEditingAddressId(addr.id)
+    setEditForm({
+      label: addr.label,
+      recipientName: addr.recipientName,
+      phone: addr.phone,
+      cep: addr.cep.length === 8 ? `${addr.cep.slice(0, 5)}-${addr.cep.slice(5)}` : addr.cep,
+      street: addr.street,
+      number: addr.number,
+      complement: addr.complement ?? '',
+      reference: addr.reference ?? '',
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      state: addr.state,
+      isDefault: addr.isDefault,
+    })
+  }
+
+  async function handleUpdateAddress() {
+    if (!user || !editingAddressId) return
+    const { label, recipientName, phone, cep, street, number, neighborhood, city, state } = editForm
+    if (!label || !recipientName || !phone || !cep || !street || !number || !neighborhood || !city || !state) {
+      setError('Preencha todos os campos obrigatórios.')
+      return
+    }
+    setSavingAddress(true)
+    setError(null)
+    try {
+      const data = {
+        label,
+        recipientName,
+        phone,
+        cep: cep.replace(/\D/g, ''),
+        street,
+        number,
+        complement: editForm.complement || undefined,
+        reference: editForm.reference || undefined,
+        neighborhood,
+        city,
+        state,
+        isDefault: editForm.isDefault,
+      }
+      await updateAddress(user.uid, editingAddressId, data)
+      setAddresses((prev) =>
+        prev.map((a) => {
+          if (a.id !== editingAddressId) return editForm.isDefault ? { ...a, isDefault: false } : a
+          return { ...a, ...data }
+        }),
+      )
+      setEditingAddressId(null)
+    } catch {
+      setError('Erro ao atualizar endereço. Tente novamente.')
+    } finally {
+      setSavingAddress(false)
+    }
+  }
+
+  // ── Validar cupom ────────────────────────────────────
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim()
+    if (!code) return
+    if (appliedCoupon?.code === code.toUpperCase()) return
+    setCouponLoading(true)
+    setCouponError('')
+    setAppliedCoupon(null)
+    try {
+      const result = await validateCoupon(code, subtotalInCents)
+      if (result.valid) {
+        setAppliedCoupon(result)
+      } else {
+        setCouponError(result.error ?? 'Cupom inválido.')
+      }
+    } catch {
+      setCouponError('Não foi possível validar o cupom.')
+    } finally {
+      setCouponLoading(false)
     }
   }
 
@@ -441,39 +563,155 @@ export default function CheckoutPage() {
             {addresses.length > 0 && (
               <div className="mb-4 space-y-2">
                 {addresses.map((addr) => (
-                  <label
-                    key={addr.id}
-                    className={[
-                      'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
+                  <div key={addr.id} className="space-y-2">
+                    <div className={[
+                      'flex items-start gap-3 rounded-xl border p-3 transition-colors',
                       selectedAddressId === addr.id
                         ? 'border-brand-500 bg-brand-50'
                         : 'border-neutral-200 hover:border-neutral-300',
-                    ].join(' ')}
-                  >
-                    <input
-                      type="radio"
-                      name="address"
-                      value={addr.id}
-                      checked={selectedAddressId === addr.id}
-                      onChange={() => {
-                        setSelectedAddressId(addr.id)
-                        setShowNewAddress(false)
-                      }}
-                      className="mt-0.5 accent-brand-500"
-                    />
-                    <div className="flex-1 text-sm">
-                      <p className="font-semibold text-neutral-900">
-                        {addr.label} — {addr.recipientName}
-                      </p>
-                      <p className="text-neutral-500">
-                        {addr.street}, {addr.number}
-                        {addr.complement ? `, ${addr.complement}` : ''} — {addr.neighborhood}
-                      </p>
-                      <p className="text-neutral-500">
-                        {addr.city}/{addr.state} · CEP {addr.cep}
-                      </p>
+                    ].join(' ')}>
+                      <label className="flex flex-1 min-w-0 cursor-pointer items-start gap-3">
+                        <input
+                          type="radio"
+                          name="address"
+                          value={addr.id}
+                          checked={selectedAddressId === addr.id}
+                          onChange={() => {
+                            setSelectedAddressId(addr.id)
+                            setShowNewAddress(false)
+                            setEditingAddressId(null)
+                          }}
+                          className="mt-0.5 accent-brand-500"
+                        />
+                        <div className="min-w-0 text-sm">
+                          <p className="font-semibold text-neutral-900 flex items-center gap-2 flex-wrap">
+                            {addr.label} — {addr.recipientName}
+                            {addr.isDefault && (
+                              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
+                                Padrão
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-neutral-500 truncate">
+                            {addr.street}, {addr.number}
+                            {addr.complement ? `, ${addr.complement}` : ''} — {addr.neighborhood}
+                          </p>
+                          <p className="text-neutral-500">
+                            {addr.city}/{addr.state} · CEP {addr.cep}
+                          </p>
+                        </div>
+                      </label>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => editingAddressId === addr.id ? setEditingAddressId(null) : handleStartEdit(addr)}
+                          className="text-xs font-medium text-brand-600 hover:underline"
+                        >
+                          {editingAddressId === addr.id ? 'Fechar' : 'Editar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAddress(addr.id)}
+                          disabled={deletingAddressId === addr.id}
+                          className="text-xs font-medium text-red-500 hover:underline disabled:opacity-50"
+                        >
+                          {deletingAddressId === addr.id ? '…' : 'Remover'}
+                        </button>
+                      </div>
                     </div>
-                  </label>
+
+                    {editingAddressId === addr.id && (
+                      <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-neutral-900">Editar endereço</h3>
+                        <div className="flex gap-2">
+                          {['Casa', 'Trabalho', 'Outro'].map((lbl) => (
+                            <button
+                              key={lbl}
+                              type="button"
+                              onClick={() => setEditForm((p) => ({ ...p, label: lbl }))}
+                              className={[
+                                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                                editForm.label === lbl
+                                  ? 'bg-brand-500 text-white'
+                                  : 'border border-neutral-300 text-neutral-600 hover:border-brand-400',
+                              ].join(' ')}
+                            >
+                              {lbl}
+                            </button>
+                          ))}
+                        </div>
+                        <Field label="Nome do destinatário *">
+                          <input type="text" value={editForm.recipientName} onChange={(e) => setEditForm((p) => ({ ...p, recipientName: e.target.value }))} className={inputCls} />
+                        </Field>
+                        <Field label="Telefone *">
+                          <input type="tel" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: maskPhone(e.target.value) }))} className={inputCls} />
+                        </Field>
+                        <Field label="CEP *">
+                          <input
+                            type="text"
+                            value={editForm.cep}
+                            onChange={(e) => setEditForm((p) => ({ ...p, cep: maskCep(e.target.value) }))}
+                            onBlur={async () => {
+                              setCepLoading(true)
+                              const r = await fetchViaCep(editForm.cep)
+                              if (r) setEditForm((p) => ({ ...p, ...r }))
+                              setCepLoading(false)
+                            }}
+                            maxLength={9}
+                            className={inputCls}
+                          />
+                        </Field>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-2">
+                            <Field label="Rua *">
+                              <input type="text" value={editForm.street} onChange={(e) => setEditForm((p) => ({ ...p, street: e.target.value }))} className={inputCls} />
+                            </Field>
+                          </div>
+                          <Field label="Número *">
+                            <input type="text" value={editForm.number} onChange={(e) => setEditForm((p) => ({ ...p, number: e.target.value }))} className={inputCls} />
+                          </Field>
+                        </div>
+                        <Field label="Complemento">
+                          <input type="text" value={editForm.complement} onChange={(e) => setEditForm((p) => ({ ...p, complement: e.target.value }))} placeholder="Apto, bloco, etc." className={inputCls} />
+                        </Field>
+                        <Field label="Ponto de referência">
+                          <input type="text" value={editForm.reference} onChange={(e) => setEditForm((p) => ({ ...p, reference: e.target.value }))} placeholder="Ex: próximo ao mercado" className={inputCls} />
+                        </Field>
+                        <Field label="Bairro *">
+                          <input type="text" value={editForm.neighborhood} onChange={(e) => setEditForm((p) => ({ ...p, neighborhood: e.target.value }))} className={inputCls} />
+                        </Field>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-2">
+                            <Field label="Cidade *">
+                              <input type="text" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} className={inputCls} />
+                            </Field>
+                          </div>
+                          <Field label="UF *">
+                            <input type="text" value={editForm.state} onChange={(e) => setEditForm((p) => ({ ...p, state: e.target.value.toUpperCase().slice(0, 2) }))} maxLength={2} className={inputCls} />
+                          </Field>
+                        </div>
+                        {!addr.isDefault && (
+                          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                            <input
+                              type="checkbox"
+                              checked={editForm.isDefault}
+                              onChange={(e) => setEditForm((p) => ({ ...p, isDefault: e.target.checked }))}
+                              className="accent-brand-500"
+                            />
+                            Definir como endereço padrão
+                          </label>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <button type="button" onClick={() => setEditingAddressId(null)} className="flex-1 rounded-xl border border-neutral-300 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50">
+                            Cancelar
+                          </button>
+                          <button type="button" onClick={handleUpdateAddress} disabled={savingAddress} className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-bold text-white hover:bg-brand-600 disabled:opacity-60">
+                            {savingAddress ? 'Salvando…' : 'Salvar alterações'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -587,6 +825,17 @@ export default function CheckoutPage() {
                   />
                 </Field>
 
+                {/* Ponto de referência */}
+                <Field label="Ponto de referência">
+                  <input
+                    type="text"
+                    value={addressForm.reference}
+                    onChange={(e) => setAddressForm((p) => ({ ...p, reference: e.target.value }))}
+                    placeholder="Ex: próximo ao mercado"
+                    className={inputCls}
+                  />
+                </Field>
+
                 {/* Bairro, cidade, estado */}
                 <Field label="Bairro *">
                   <input
@@ -621,6 +870,18 @@ export default function CheckoutPage() {
                     />
                   </Field>
                 </div>
+
+                {addresses.length > 0 && (
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={addressForm.isDefault}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, isDefault: e.target.checked }))}
+                      className="accent-brand-500"
+                    />
+                    Definir como endereço padrão
+                  </label>
+                )}
 
                 <div className="flex gap-2 pt-1">
                   <button
@@ -670,21 +931,48 @@ export default function CheckoutPage() {
           {/* Cupom */}
           <section className="rounded-2xl border border-neutral-200 bg-white p-5">
             <h2 className="mb-3 text-base font-bold text-neutral-900">Cupom de desconto</h2>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                placeholder="Digite o código"
-                className={`${inputCls} flex-1`}
-              />
-              <button
-                type="button"
-                className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-              >
-                Aplicar
-              </button>
-            </div>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-bold text-emerald-700">{appliedCoupon.code}</p>
+                  <p className="text-xs text-emerald-600">{appliedCoupon.description}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAppliedCoupon(null); setCouponCode(''); setCouponError('') }}
+                  className="text-xs font-medium text-red-500 hover:underline"
+                >
+                  Remover
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                    placeholder="Digite o código"
+                    className={`${inputCls} flex-1`}
+                    disabled={couponLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    {couponLoading ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                    ) : 'Aplicar'}
+                  </button>
+                </div>
+                {couponError && (
+                  <p className="mt-2 text-xs text-red-600">{couponError}</p>
+                )}
+              </>
+            )}
           </section>
         </div>
 
@@ -743,6 +1031,15 @@ export default function CheckoutPage() {
                 <p className="text-xs text-amber-600">
                   Não foi possível calcular a distância — usando taxa fixa.
                 </p>
+              )}
+              {appliedCoupon && (
+                <div className="flex justify-between text-emerald-600">
+                  <span className="flex items-center gap-1">
+                    Desconto
+                    <span className="text-xs font-semibold bg-emerald-100 rounded-full px-1.5 py-0.5">{appliedCoupon.code}</span>
+                  </span>
+                  <span>− {formatCurrency(discountInCents)}</span>
+                </div>
               )}
               <div className="flex justify-between border-t border-neutral-100 pt-2 font-bold text-neutral-900">
                 <span>Total</span>
