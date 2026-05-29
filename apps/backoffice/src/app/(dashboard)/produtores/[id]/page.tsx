@@ -11,6 +11,8 @@ import {
 } from '@marketplace/shared-services'
 import { useAuth } from '@marketplace/shared-services'
 import type { Produtor, ProdutorCertification } from '@marketplace/shared-types'
+import { firestore } from '@marketplace/shared-firebase'
+import { doc, getDoc } from 'firebase/firestore'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound, useRouter } from 'next/navigation'
@@ -51,6 +53,7 @@ export default function ProdutorDetailPage() {
   const router = useRouter()
 
   const [produtor, setProdutor] = useState<Produtor | null | undefined>(undefined)
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null)
   const [acting, setActing] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
@@ -65,9 +68,18 @@ export default function ProdutorDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    getProdutorById(id).then((p) => {
+    getProdutorById(id).then(async (p) => {
       setProdutor(p ?? null)
-      if (p) setCommissionInput(String(p.commission))
+      if (p) {
+        setCommissionInput(String(p.commission))
+        // Usa email salvo no documento; caso ausente (cadastros antigos), busca do users/{uid}
+        if (p.email) {
+          setOwnerEmail(p.email)
+        } else {
+          const userSnap = await getDoc(doc(firestore, 'users', p.ownerUid))
+          setOwnerEmail((userSnap.data()?.['email'] as string | undefined) ?? null)
+        }
+      }
     })
   }, [id])
 
@@ -283,6 +295,7 @@ export default function ProdutorDetailPage() {
             Dados cadastrais
           </h2>
           <div className="divide-y divide-neutral-100">
+            <InfoRow label="E-mail" value={ownerEmail ?? '—'} />
             <InfoRow label="Telefone" value={produtor.phone} />
             <InfoRow label="Documento" value={produtor.document ?? 'Não informado'} />
             <InfoRow label="Slug (URL)" value={produtor.slug} />

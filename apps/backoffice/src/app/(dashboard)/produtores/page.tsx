@@ -289,6 +289,9 @@ export default function ProdutoresAdminPage() {
                     <p className="mt-0.5 truncate text-xs text-neutral-500">
                       {produtor.address.city}, {produtor.address.state} · {produtor.phone}
                     </p>
+                    {produtor.email && (
+                      <p className="mt-0.5 truncate text-xs text-neutral-400">{produtor.email}</p>
+                    )}
                     <p className="mt-0.5 text-xs text-neutral-400">
                       Cadastrado em{' '}
                       {produtor.createdAt?.toDate

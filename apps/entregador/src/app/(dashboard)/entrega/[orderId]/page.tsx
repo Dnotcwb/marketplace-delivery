@@ -124,6 +124,52 @@ export default function EntregaDetailPage() {
         <h1 className="text-lg font-bold text-neutral-900">Entrega #{order.id.slice(0, 8)}</h1>
       </div>
 
+      {/* Informações do pedido */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-2 text-sm font-bold text-neutral-700">Informações do pedido</h2>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-500">Cliente</span>
+            <span className="font-semibold text-neutral-900">{order.customerName}</span>
+          </div>
+          {order.customerPhone && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-neutral-500">Telefone</span>
+              <a href={`tel:${order.customerPhone}`} className="font-medium text-brand-600 hover:underline">
+                {order.customerPhone}
+              </a>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-500">Pedido realizado</span>
+            <span className="text-neutral-900">
+              {order.createdAt?.toDate
+                ? order.createdAt.toDate().toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '—'}
+            </span>
+          </div>
+          {order.onDeliveryAt && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-neutral-500">Saiu para entrega</span>
+              <span className="text-neutral-900">
+                {order.onDeliveryAt.toDate().toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Status atual */}
       <div className={`rounded-xl px-4 py-3 text-center font-semibold ${
         isDelivered

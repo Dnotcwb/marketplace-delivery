@@ -114,6 +114,7 @@ export default function ConfigurarPage() {
         name: step1.name,
         description: step1.description,
         ownerUid: user.uid,
+        email: user.email ?? undefined,
         phone: step1.phone,
         ...(step1.document ? { document: step1.document } : {}),
         address: step2.address,
