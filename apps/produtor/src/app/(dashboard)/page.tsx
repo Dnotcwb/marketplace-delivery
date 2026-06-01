@@ -1,10 +1,9 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
-import { subscribeToReviews } from '@marketplace/shared-services'
+import { subscribeToPedidoFilhos, subscribeToReviews } from '@marketplace/shared-services'
+import type { PedidoFilho, Review } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import type { Order, Review } from '@marketplace/shared-types'
-import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
@@ -23,6 +22,13 @@ function startOfToday(): Timestamp {
   return Timestamp.fromDate(d)
 }
 
+function filhoSubtotal(filho: PedidoFilho): number {
+  return filho.items.reduce((s, i) => s + i.priceInCents * i.quantity, 0)
+}
+
+const ACTIVE_STATUSES = new Set(['pendente', 'aceito', 'em_preparo', 'separado'])
+const COMPLETED_STATUSES = new Set(['aceito', 'em_preparo', 'separado', 'retirado', 'entregue'])
+
 export default function DashboardPage() {
   const { produtor, loading: prodLoading } = useProdutorAtivo()
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -35,33 +41,21 @@ export default function DashboardPage() {
       return
     }
 
-    // Todos os pedidos do produtor (para ativos + histórico do dia)
-    const q = query(
-      collection(firestore, 'orders'),
-      where('produtorId', '==', produtor.id),
-    )
-
     const todayTs = startOfToday()
 
-    const unsub = onSnapshot(q, (snap) => {
-      const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)
-
-      const todayOrders = orders.filter((o) => {
-        const ts = o.createdAt as unknown as { seconds: number }
+    const unsub = subscribeToPedidoFilhos(produtor.id, (filhos) => {
+      const todayFilhos = filhos.filter((f) => {
+        const ts = f.createdAt as unknown as { seconds: number }
         return ts?.seconds >= todayTs.seconds
       })
 
-      const completedToday = todayOrders.filter((o) =>
-        ['confirmed', 'accepted', 'preparing', 'ready', 'on_delivery', 'delivered'].includes(o.status),
-      )
-
-      const faturamento = completedToday.reduce((sum, o) => sum + o.totalInCents, 0)
+      const completedToday = todayFilhos.filter((f) => COMPLETED_STATUSES.has(f.status))
+      const faturamento = completedToday.reduce((sum, f) => sum + filhoSubtotal(f), 0)
       const ticketMedio = completedToday.length > 0 ? Math.round(faturamento / completedToday.length) : 0
 
-      // Top produtos do dia
       const prodQty: Record<string, number> = {}
-      completedToday.forEach((o) => {
-        o.items.forEach((item) => {
+      completedToday.forEach((f) => {
+        f.items.forEach((item) => {
           prodQty[item.productName] = (prodQty[item.productName] ?? 0) + item.quantity
         })
       })
@@ -70,20 +64,15 @@ export default function DashboardPage() {
         .slice(0, 5)
         .map(([name, qty]) => ({ name, qty }))
 
-      const pedidosAtivos = orders.filter((o) =>
-        ['pending', 'confirmed', 'accepted', 'preparing', 'ready', 'on_delivery'].includes(o.status),
-      ).length
+      const pedidosAtivos = filhos.filter((f) => ACTIVE_STATUSES.has(f.status)).length
 
       setStats({
-        pedidosHoje: todayOrders.length,
+        pedidosHoje: todayFilhos.length,
         faturamentoHoje: faturamento,
         ticketMedio,
         topProdutos,
         pedidosAtivos,
       })
-      setStatsLoading(false)
-    }, (err) => {
-      console.error('dashboard stats error:', err)
       setStatsLoading(false)
     })
 

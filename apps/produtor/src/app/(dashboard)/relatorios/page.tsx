@@ -1,9 +1,9 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
-import type { Order } from '@marketplace/shared-types'
+import { subscribeToPedidoFilhos } from '@marketplace/shared-services'
+import type { PedidoFilho } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
 
@@ -25,20 +25,23 @@ function fullDate(ts: unknown): string {
   } catch { return '—' }
 }
 
-function exportCsv(orders: Order[], produtorName: string) {
+function filhoSubtotal(filho: PedidoFilho): number {
+  return filho.items.reduce((s, i) => s + i.priceInCents * i.quantity, 0)
+}
+
+const COMPLETED_STATUSES = new Set(['aceito', 'em_preparo', 'separado', 'retirado', 'entregue'])
+
+function exportCsv(filhos: PedidoFilho[], produtorName: string) {
   const rows = [
-    ['ID', 'Data', 'Cliente', 'Itens', 'Subtotal (R$)', 'Entrega (R$)', 'Desconto (R$)', 'Total (R$)', 'Status', 'Pagamento'],
-    ...orders.map((o) => [
-      o.id.slice(0, 8).toUpperCase(),
-      fullDate(o.createdAt),
-      o.customerName ?? '',
-      o.items.map((i) => `${i.quantity}x ${i.productName}`).join(' | '),
-      (o.subtotalInCents / 100).toFixed(2).replace('.', ','),
-      (o.deliveryFeeInCents / 100).toFixed(2).replace('.', ','),
-      (o.discountInCents / 100).toFixed(2).replace('.', ','),
-      (o.totalInCents / 100).toFixed(2).replace('.', ','),
-      o.status,
-      o.payment?.method === 'pix' ? 'PIX' : 'Cartão',
+    ['Pedido Pai', 'Data', 'Cliente', 'Itens', 'Subtotal (R$)', 'Repasse (R$)', 'Status'],
+    ...filhos.map((f) => [
+      f.pedidoPaiId.slice(0, 8).toUpperCase(),
+      fullDate(f.createdAt),
+      f.customerName ?? '',
+      f.items.map((i) => `${i.quantity}x ${i.productName}`).join(' | '),
+      (filhoSubtotal(f) / 100).toFixed(2).replace('.', ','),
+      (f.valorRepasseInCents / 100).toFixed(2).replace('.', ','),
+      f.status,
     ]),
   ]
 
@@ -54,7 +57,7 @@ function exportCsv(orders: Order[], produtorName: string) {
 
 export default function RelatoriosPage() {
   const { produtor, loading: prodLoading } = useProdutorAtivo()
-  const [allOrders, setAllOrders] = useState<Order[]>([])
+  const [allFilhos, setAllFilhos] = useState<PedidoFilho[]>([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<Period>('7')
 
@@ -64,44 +67,32 @@ export default function RelatoriosPage() {
       return
     }
 
-    const q = query(
-      collection(firestore, 'orders'),
-      where('produtorId', '==', produtor.id),
-    )
-
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Order)
-        .sort((a, b) => {
-          const aT = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0
-          const bT = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0
-          return bT - aT
-        })
-      setAllOrders(list)
+    const unsub = subscribeToPedidoFilhos(produtor.id, (filhos) => {
+      setAllFilhos(filhos)
       setLoading(false)
-    }, () => setLoading(false))
+    })
 
     return unsub
   }, [prodLoading, produtor])
 
   const filtered = useMemo(() => {
     const cutoff = startOf(Number(period))
-    return allOrders.filter((o) => {
-      const ts = (o.createdAt as unknown as { seconds: number })?.seconds ?? 0
+    return allFilhos.filter((f) => {
+      const ts = (f.createdAt as unknown as { seconds: number })?.seconds ?? 0
       return ts >= cutoff.seconds
     })
-  }, [allOrders, period])
+  }, [allFilhos, period])
 
   const completed = useMemo(() =>
-    filtered.filter((o) => ['confirmed', 'accepted', 'preparing', 'ready', 'on_delivery', 'delivered'].includes(o.status)),
+    filtered.filter((f) => COMPLETED_STATUSES.has(f.status)),
   [filtered])
 
-  const faturamento = completed.reduce((s, o) => s + o.totalInCents, 0)
+  const faturamento = completed.reduce((s, f) => s + filhoSubtotal(f), 0)
   const ticket = completed.length > 0 ? Math.round(faturamento / completed.length) : 0
 
   const topProdutos = useMemo(() => {
     const map: Record<string, number> = {}
-    completed.forEach((o) => o.items.forEach((i) => {
+    completed.forEach((f) => f.items.forEach((i) => {
       map[i.productName] = (map[i.productName] ?? 0) + i.quantity
     }))
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
@@ -193,20 +184,22 @@ export default function RelatoriosPage() {
                   <th className="px-4 py-3 text-left">Pedido</th>
                   <th className="px-4 py-3 text-left">Data</th>
                   <th className="px-4 py-3 text-left">Cliente</th>
-                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Subtotal</th>
+                  <th className="px-4 py-3 text-right">Repasse</th>
                   <th className="px-4 py-3 text-left">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {filtered.map((order) => (
-                  <tr key={order.id} className="hover:bg-neutral-50">
+                {filtered.map((filho) => (
+                  <tr key={filho.id} className="hover:bg-neutral-50">
                     <td className="px-4 py-3 font-mono font-semibold text-neutral-700">
-                      #{order.id.slice(0, 8).toUpperCase()}
+                      #{filho.pedidoPaiId.slice(0, 8).toUpperCase()}
                     </td>
-                    <td className="px-4 py-3 text-neutral-500">{fullDate(order.createdAt)}</td>
-                    <td className="px-4 py-3 text-neutral-700 max-w-[160px] truncate">{order.customerName ?? '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-neutral-900">{formatCurrency(order.totalInCents)}</td>
-                    <td className="px-4 py-3 text-neutral-500">{order.status}</td>
+                    <td className="px-4 py-3 text-neutral-500">{fullDate(filho.createdAt)}</td>
+                    <td className="px-4 py-3 text-neutral-700 max-w-[160px] truncate">{filho.customerName ?? '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-neutral-900">{formatCurrency(filhoSubtotal(filho))}</td>
+                    <td className="px-4 py-3 text-right text-brand-700 font-semibold">{formatCurrency(filho.valorRepasseInCents)}</td>
+                    <td className="px-4 py-3 text-neutral-500">{filho.status}</td>
                   </tr>
                 ))}
               </tbody>

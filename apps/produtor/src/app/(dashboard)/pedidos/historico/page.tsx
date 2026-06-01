@@ -1,20 +1,20 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
-import type { Order, OrderStatus } from '@marketplace/shared-types'
-import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
+import { subscribeToPedidoFilhos } from '@marketplace/shared-services'
+import type { FilhoStatus, PedidoFilho } from '@marketplace/shared-types'
+import { FILHO_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { collection, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useProdutorAtivo } from '@/hooks/useProdutorAtivo'
 
-const TERMINAL: OrderStatus[] = ['delivered', 'cancelled', 'refunded']
+const TERMINAL: FilhoStatus[] = ['retirado', 'entregue', 'cancelado']
 
-const STATUS_COLOR: Partial<Record<OrderStatus, string>> = {
-  delivered: 'bg-emerald-100 text-emerald-700',
-  cancelled:  'bg-red-100 text-red-700',
-  refunded:   'bg-red-100 text-red-700',
+const STATUS_COLOR: Partial<Record<FilhoStatus, string>> = {
+  entregue:  'bg-emerald-100 text-emerald-700',
+  retirado:  'bg-blue-100 text-blue-700',
+  cancelado: 'bg-red-100 text-red-700',
 }
 
 function fullDate(ts: unknown): string {
@@ -27,12 +27,16 @@ function fullDate(ts: unknown): string {
   } catch { return '—' }
 }
 
+function filhoSubtotal(filho: PedidoFilho): number {
+  return filho.items.reduce((s, i) => s + i.priceInCents * i.quantity, 0)
+}
+
 export default function HistoricoPage() {
   const { produtor, loading: prodLoading } = useProdutorAtivo()
-  const [orders, setOrders] = useState<Order[]>([])
+  const [allFilhos, setAllFilhos] = useState<PedidoFilho[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<FilhoStatus | 'all'>('all')
 
   useEffect(() => {
     if (prodLoading || !produtor?.id) {
@@ -40,21 +44,8 @@ export default function HistoricoPage() {
       return
     }
 
-    const q = query(
-      collection(firestore, 'orders'),
-      where('produtorId', '==', produtor.id),
-      orderBy('createdAt', 'desc'),
-      limit(200),
-    )
-
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Order)
-        .filter((o) => TERMINAL.includes(o.status))
-      setOrders(list)
-      setLoading(false)
-    }, (err) => {
-      console.error('historico error:', err)
+    const unsub = subscribeToPedidoFilhos(produtor.id, (filhos) => {
+      setAllFilhos(filhos.filter((f) => TERMINAL.includes(f.status)))
       setLoading(false)
     })
 
@@ -62,19 +53,19 @@ export default function HistoricoPage() {
   }, [prodLoading, produtor])
 
   const filtered = useMemo(() => {
-    let list = orders
-    if (statusFilter !== 'all') list = list.filter((o) => o.status === statusFilter)
+    let list = allFilhos
+    if (statusFilter !== 'all') list = list.filter((f) => f.status === statusFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(
-        (o) =>
-          o.id.toLowerCase().includes(q) ||
-          o.customerName?.toLowerCase().includes(q) ||
-          o.items.some((i) => i.productName.toLowerCase().includes(q)),
+        (f) =>
+          f.pedidoPaiId.toLowerCase().includes(q) ||
+          f.customerName?.toLowerCase().includes(q) ||
+          f.items.some((i) => i.productName.toLowerCase().includes(q)),
       )
     }
     return list
-  }, [orders, statusFilter, search])
+  }, [allFilhos, statusFilter, search])
 
   if (prodLoading || loading) {
     return (
@@ -91,7 +82,7 @@ export default function HistoricoPage() {
         <Link href="/pedidos" className="text-sm text-neutral-500 hover:text-brand-600">← Pedidos</Link>
         <h1 className="text-2xl font-bold text-neutral-900">Histórico</h1>
         <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-600">
-          {orders.length}
+          {allFilhos.length}
         </span>
       </div>
 
@@ -106,12 +97,12 @@ export default function HistoricoPage() {
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')}
+          onChange={(e) => setStatusFilter(e.target.value as FilhoStatus | 'all')}
           className="rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-700 focus:border-brand-500 focus:outline-none"
         >
           <option value="all">Todos os status</option>
           {TERMINAL.map((s) => (
-            <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+            <option key={s} value={s}>{FILHO_STATUS_LABELS[s]}</option>
           ))}
         </select>
       </div>
@@ -124,29 +115,30 @@ export default function HistoricoPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((order) => (
-            <div key={order.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          {filtered.map((filho) => (
+            <div key={filho.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-sm font-bold text-neutral-800">
-                      #{order.id.slice(0, 8).toUpperCase()}
+                      #{filho.pedidoPaiId.slice(0, 8).toUpperCase()}
                     </span>
                     <span className={[
                       'rounded-full px-2 py-0.5 text-xs font-semibold',
-                      STATUS_COLOR[order.status] ?? 'bg-neutral-100 text-neutral-600',
+                      STATUS_COLOR[filho.status] ?? 'bg-neutral-100 text-neutral-600',
                     ].join(' ')}>
-                      {ORDER_STATUS_LABELS[order.status]}
+                      {FILHO_STATUS_LABELS[filho.status]}
                     </span>
                   </div>
                   <p className="mt-0.5 text-sm font-medium text-neutral-700 truncate">
-                    {order.customerName || 'Cliente'}
+                    {filho.customerName || 'Cliente'}
                   </p>
-                  <p className="text-xs text-neutral-400">{fullDate(order.createdAt)}</p>
+                  <p className="text-xs text-neutral-400">{fullDate(filho.createdAt)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-bold text-neutral-900">{formatCurrency(order.totalInCents)}</p>
-                  <p className="text-xs text-neutral-400">{order.items.length} iten{order.items.length !== 1 ? 's' : ''}</p>
+                  <p className="font-bold text-neutral-900">{formatCurrency(filhoSubtotal(filho))}</p>
+                  <p className="text-xs text-brand-600 font-medium">{formatCurrency(filho.valorRepasseInCents)} repasse</p>
+                  <p className="text-xs text-neutral-400">{filho.items.length} iten{filho.items.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
             </div>
