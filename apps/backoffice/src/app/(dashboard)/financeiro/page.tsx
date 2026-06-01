@@ -39,32 +39,47 @@ function fmtDate(ts: unknown): string {
 //  Aba Faturamento
 // ──────────────────────────────────────────────────────
 
-function TabFaturamento({ orders, loading, period, setPeriod }: {
+const COMPLETED_FILHO = new Set(['aceito', 'em_preparo', 'separado', 'retirado', 'entregue'])
+
+function filhoSubtotal(f: PedidoFilho): number {
+  return f.items.reduce((s, i) => s + i.priceInCents * i.quantity, 0)
+}
+
+function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
   orders: Order[]
+  filhos: PedidoFilho[]
   loading: boolean
   period: Period
   setPeriod: (p: Period) => void
 }) {
   const cutoff = startOf(Number(period))
 
-  const filtered = useMemo(
+  // Total GMV from orders (includes delivery fee, discounts)
+  const filteredOrders = useMemo(
     () => orders.filter((o) => tsSeconds(o.createdAt) >= cutoff && COMPLETED.includes(o.status)),
     [orders, cutoff],
   )
 
+  // Per-producer breakdown from pedidos_filhos (correct for multi-producer horta orders)
+  const filteredFilhos = useMemo(
+    () => filhos.filter((f) => tsSeconds(f.createdAt) >= cutoff && COMPLETED_FILHO.has(f.status)),
+    [filhos, cutoff],
+  )
+
   const byProdutor = useMemo(() => {
     const map: Record<string, { name: string; gmv: number; count: number }> = {}
-    filtered.forEach((o) => {
-      if (!map[o.produtorId]) {
-        map[o.produtorId] = { name: o.produtorName ?? o.produtorId, gmv: 0, count: 0 }
+    filteredFilhos.forEach((f) => {
+      if (!map[f.produtorId]) {
+        map[f.produtorId] = { name: f.produtorName, gmv: 0, count: 0 }
       }
-      map[o.produtorId]!.gmv += o.totalInCents
-      map[o.produtorId]!.count += 1
+      map[f.produtorId]!.gmv += filhoSubtotal(f)
+      map[f.produtorId]!.count += 1
     })
     return Object.entries(map).sort((a, b) => b[1].gmv - a[1].gmv)
-  }, [filtered])
+  }, [filteredFilhos])
 
-  const totalGmv = filtered.reduce((s, o) => s + o.totalInCents, 0)
+  const totalGmv = filteredOrders.reduce((s, o) => s + o.totalInCents, 0)
+  const filtered = filteredOrders
 
   return (
     <div className="space-y-5">
@@ -377,6 +392,7 @@ export default function FinanceiroPage() {
       {activeTab === 'faturamento' && (
         <TabFaturamento
           orders={orders}
+          filhos={filhos}
           loading={loading}
           period={period}
           setPeriod={setPeriod}
