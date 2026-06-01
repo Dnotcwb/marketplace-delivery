@@ -57,8 +57,10 @@ function formatDate(ts: unknown): string {
 
 async function advanceStatus(order: Order) {
   const idx = STATUS_SEQUENCE.indexOf(order.status as OrderStatus)
-  if (idx < 0 && order.status !== 'confirmed') return
-  const nextStatus = idx < 0 ? STATUS_SEQUENCE[0]! : STATUS_SEQUENCE[idx + 1]
+  // 'pending' não está na sequência mas pode ser avançado manualmente para 'confirmed'
+  // (útil em dev/teste sem webhook de pagamento)
+  if (idx < 0 && order.status !== 'pending') return
+  const nextStatus: OrderStatus = idx < 0 ? 'confirmed' : (STATUS_SEQUENCE[idx + 1] as OrderStatus)
   if (!nextStatus) return
 
   const tsNow = Timestamp.now()
@@ -88,12 +90,24 @@ export default function PedidosPage() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
 
   useEffect(() => {
-    const unsub = subscribeToAllOrders((list) => {
-      setOrders(list)
-      setLoading(false)
-    })
+    const unsub = subscribeToAllOrders(
+      (list) => {
+        setOrders(list)
+        setLoading(false)
+        setSubscriptionError(null)
+      },
+      (err) => {
+        const code = (err as { code?: string }).code ?? ''
+        const msg = code === 'permission-denied'
+          ? 'Sem permissão para listar pedidos. Verifique se seu token está atualizado e recarregue.'
+          : `Erro na subscription de pedidos (${code || err.message}). Recarregue a página.`
+        setSubscriptionError(msg)
+        setLoading(false)
+      },
+    )
     return unsub
   }, [])
 
@@ -111,15 +125,16 @@ export default function PedidosPage() {
   })
 
   const canAdvance = (o: Order) =>
-    !['delivered', 'cancelled', 'refunded'].includes(o.status) &&
-    o.status !== 'pending'
+    !['delivered', 'cancelled', 'refunded'].includes(o.status)
 
   const canCancel = (o: Order) =>
     !['delivered', 'cancelled', 'refunded'].includes(o.status)
 
   const nextStatusLabel = (o: Order): string => {
     const idx = STATUS_SEQUENCE.indexOf(o.status as OrderStatus)
-    const next = idx < 0 ? STATUS_SEQUENCE[0]! : STATUS_SEQUENCE[idx + 1]
+    const next: OrderStatus | undefined = idx < 0
+      ? (o.status === 'pending' ? 'confirmed' : undefined)
+      : (STATUS_SEQUENCE[idx + 1] as OrderStatus | undefined)
     return next ? ORDER_STATUS_LABELS[next] : ''
   }
 
@@ -134,6 +149,19 @@ export default function PedidosPage() {
           </p>
         </div>
       </div>
+
+      {/* Erro de subscription */}
+      {subscriptionError && (
+        <div className="mb-5 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <span className="flex-1">{subscriptionError}</span>
+          <button onClick={() => window.location.reload()} className="rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700">
+            Recarregar
+          </button>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="mb-5 flex flex-wrap gap-3">

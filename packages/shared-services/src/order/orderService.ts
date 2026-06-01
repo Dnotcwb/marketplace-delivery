@@ -60,11 +60,17 @@ export function subscribeToProdutorOrders(
 /** Listener em todos os pedidos (backoffice). */
 export function subscribeToAllOrders(
   callback: (orders: Order[]) => void,
+  onError?: (err: Error) => void,
 ): Unsubscribe {
   const q = query(collection(firestore, COL), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order))
-  })
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)),
+    (err) => {
+      console.error('subscribeToAllOrders:', err)
+      onError?.(err)
+    },
+  )
 }
 
 /** Listener nos PedidoFilho de um produtor (app produtor — novo modelo). */

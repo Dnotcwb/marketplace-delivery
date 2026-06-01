@@ -20,13 +20,15 @@ export default function EntregadorGuard({ children }: { children: React.ReactNod
     async function check() {
       setState('checking')
 
-      // 1. Força refresh do token para pegar claims recém-setados pelo admin
+      // 1. Só força refresh se ainda não tiver o role correto (evita chamada de rede desnecessária)
       let role: string | undefined = claims?.role
-      try {
-        const fresh = await user!.getIdTokenResult(true)
-        role = fresh.claims['role'] as string | undefined
-      } catch {
-        // Usa o claim já carregado se o refresh falhar
+      if (role !== 'entregador') {
+        try {
+          const fresh = await user!.getIdTokenResult(true)
+          role = fresh.claims['role'] as string | undefined
+        } catch {
+          // Usa o claim já carregado se o refresh falhar
+        }
       }
 
       // 2. Tem o role correto → entra no dashboard
