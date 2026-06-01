@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth, useCart } from '@marketplace/shared-services'
+import { useAuth, useCartActions, useCartData } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -9,7 +9,8 @@ import NotificationBell from './NotificationBell'
 
 export default function Header() {
   const { user, logout } = useAuth()
-  const { itemCount, openCart } = useCart()
+  const { itemCount } = useCartData()
+  const { openCart } = useCartActions()
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)

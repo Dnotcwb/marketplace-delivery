@@ -3,13 +3,13 @@
 import {
   subscribeToCategories,
   subscribeToProducts,
-  useCart,
+  useCartActions,
 } from '@marketplace/shared-services'
 import type { CartHorta } from '@marketplace/shared-services'
 import type { Category, Horta, Product, Produtor } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type SerializableHorta = Omit<Horta, 'createdAt' | 'updatedAt'>
 type SerializableProdutor = Omit<Produtor, 'createdAt' | 'updatedAt'>
@@ -31,41 +31,62 @@ export default function HortaCatalog({
   initialCategories,
   initialProducts,
 }: Props) {
-  const { addItem, clearCart, openCart } = useCart()
+  // Only subscribe to ACTIONS — catalog doesn't need cart data, only functions
+  const { addItem, clearCart, openCart } = useCartActions()
   const [produtores] = useState<SerializableProdutor[]>(initialProdutores)
   const [activeTab, setActiveTab] = useState<string>(TODOS_TAB)
 
-  // Estado para aba por-produtor
+  // Per-producer tab state
   const [categories, setCategories] = useState<SerializableCategory[]>(initialCategories)
   const [produtorProducts, setProdutorProducts] = useState<SerializableProduct[]>(initialProducts)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
     initialCategories[0]?.id ?? null,
   )
 
-  // Estado para aba Todos
+  // TODOS tab state — lazily loaded only when TODOS tab becomes active
   const [todosProducts, setTodosProducts] = useState<SerializableProduct[]>([])
+  const [todosLoaded, setTodosLoaded] = useState(false)
   const todosProductsRef = useRef<Map<string, SerializableProduct[]>>(new Map())
 
   const [conflictProduct, setConflictProduct] = useState<SerializableProduct | null>(null)
   const [conflictProdutor, setConflictProdutor] = useState<SerializableProdutor | null>(null)
 
-  // Carrega todos os produtos de todos os produtores (aba Todos)
+  // Stable cartHorta — only recomputed when horta identity changes
+  const cartHorta = useMemo<CartHorta>(() => ({
+    id: horta.id,
+    slug: horta.slug,
+    name: horta.name,
+    deliveryFeeInCents: horta.deliveryFeeInCents,
+    ...(horta.deliveryFeePerKmInCents ? { deliveryFeePerKmInCents: horta.deliveryFeePerKmInCents } : {}),
+    ...(horta.deliveryRadiusKm != null ? { deliveryRadiusKm: horta.deliveryRadiusKm } : {}),
+    ...(horta.lat ? { lat: horta.lat } : {}),
+    ...(horta.lng ? { lng: horta.lng } : {}),
+    minOrderValueInCents: horta.minOrderValueInCents,
+    estimatedDeliveryTimeMin: horta.estimatedDeliveryTimeMin,
+    estimatedDeliveryTimeMax: horta.estimatedDeliveryTimeMax,
+  }), [horta.id, horta.slug, horta.name, horta.deliveryFeeInCents, horta.deliveryFeePerKmInCents, horta.deliveryRadiusKm, horta.lat, horta.lng, horta.minOrderValueInCents, horta.estimatedDeliveryTimeMin, horta.estimatedDeliveryTimeMax])
+
+  // TODOS products — only subscribe when the TODOS tab is first activated (lazy load)
+  // This avoids N simultaneous Firestore connections on every page mount
   useEffect(() => {
+    if (activeTab !== TODOS_TAB || todosLoaded) return
     if (produtores.length === 0) return
+
+    setTodosLoaded(true)
     todosProductsRef.current = new Map()
 
     const unsubs = produtores.map((p) =>
       subscribeToProducts(p.id, (prods) => {
         todosProductsRef.current.set(p.id, prods)
-        const merged = [...todosProductsRef.current.values()].flat()
-        setTodosProducts(merged)
+        // Rebuild merged array once per producer update
+        setTodosProducts([...todosProductsRef.current.values()].flat())
       }),
     )
 
     return () => unsubs.forEach((u) => u())
-  }, [produtores])
+  }, [activeTab, todosLoaded, produtores])
 
-  // Carrega categorias e produtos do produtor ativo (abas por-produtor)
+  // Per-producer tab — subscribe to categories and products for the active producer
   useEffect(() => {
     if (activeTab === TODOS_TAB || !activeTab) return
     setCategories([])
@@ -84,40 +105,47 @@ export default function HortaCatalog({
     }
   }, [activeTab])
 
-  const activeProdutor = produtores.find((p) => p.id === activeTab)
+  const activeProdutor = useMemo(
+    () => produtores.find((p) => p.id === activeTab),
+    [produtores, activeTab],
+  )
 
-  const cartHorta: CartHorta = {
-    id: horta.id,
-    slug: horta.slug,
-    name: horta.name,
-    deliveryFeeInCents: horta.deliveryFeeInCents,
-    ...(horta.deliveryFeePerKmInCents ? { deliveryFeePerKmInCents: horta.deliveryFeePerKmInCents } : {}),
-    ...(horta.deliveryRadiusKm != null ? { deliveryRadiusKm: horta.deliveryRadiusKm } : {}),
-    ...(horta.lat ? { lat: horta.lat } : {}),
-    ...(horta.lng ? { lng: horta.lng } : {}),
-    minOrderValueInCents: horta.minOrderValueInCents,
-    estimatedDeliveryTimeMin: horta.estimatedDeliveryTimeMin,
-    estimatedDeliveryTimeMax: horta.estimatedDeliveryTimeMax,
-  }
+  // Memoized filters — only recompute when their inputs change
+  const produtorFilteredProducts = useMemo(
+    () => produtorProducts.filter((p) => p.categoryId === activeCategoryId && p.available),
+    [produtorProducts, activeCategoryId],
+  )
 
-  function getProdutor(product: SerializableProduct): SerializableProdutor | undefined {
-    return produtores.find((p) => p.id === product.produtorId)
-  }
+  const todosFilteredProducts = useMemo(
+    () => todosProducts.filter((p) => p.available),
+    [todosProducts],
+  )
 
-  function handleAddItem(product: SerializableProduct) {
-    const produtor = activeTab === TODOS_TAB ? getProdutor(product) : activeProdutor
-    if (!produtor) return
+  // Producer lookup map for TODOS tab — avoids O(n) find on each card render
+  const produtorMap = useMemo(
+    () => new Map(produtores.map((p) => [p.id, p])),
+    [produtores],
+  )
 
-    const result = addItem(product as Product, { id: produtor.id, name: produtor.name }, cartHorta)
-    if (result === 'conflict') {
-      setConflictProduct(product)
-      setConflictProdutor(produtor)
-    } else {
-      openCart()
-    }
-  }
+  const handleAddItem = useCallback(
+    (product: SerializableProduct) => {
+      const produtor = activeTab === TODOS_TAB
+        ? produtorMap.get(product.produtorId ?? '')
+        : activeProdutor
+      if (!produtor) return
 
-  function handleConflictConfirm() {
+      const result = addItem(product as Product, { id: produtor.id, name: produtor.name }, cartHorta)
+      if (result === 'conflict') {
+        setConflictProduct(product)
+        setConflictProdutor(produtor)
+      } else {
+        openCart()
+      }
+    },
+    [addItem, openCart, activeTab, activeProdutor, produtorMap, cartHorta],
+  )
+
+  const handleConflictConfirm = useCallback(() => {
     if (!conflictProduct || !conflictProdutor) return
     clearCart()
     addItem(
@@ -128,13 +156,7 @@ export default function HortaCatalog({
     setConflictProduct(null)
     setConflictProdutor(null)
     openCart()
-  }
-
-  const produtorFilteredProducts = produtorProducts.filter(
-    (p) => p.categoryId === activeCategoryId && p.available,
-  )
-
-  const todosFilteredProducts = todosProducts.filter((p) => p.available)
+  }, [addItem, clearCart, openCart, conflictProduct, conflictProdutor, cartHorta])
 
   return (
     <>
@@ -168,7 +190,6 @@ export default function HortaCatalog({
       {/* Tabs: Todos + por produtor */}
       <div className="mb-0 border-b border-neutral-200">
         <div className="flex gap-0 overflow-x-auto">
-          {/* Aba Todos */}
           <button
             type="button"
             onClick={() => setActiveTab(TODOS_TAB)}
@@ -190,7 +211,6 @@ export default function HortaCatalog({
             )}
           </button>
 
-          {/* Abas por produtor */}
           {produtores.map((p) => (
             <button
               key={p.id}
@@ -224,19 +244,21 @@ export default function HortaCatalog({
         <div className="mt-4">
           {todosFilteredProducts.length === 0 ? (
             <div className="py-10 text-center text-sm text-neutral-400">
-              {todosProducts.length === 0 ? 'Carregando produtos…' : 'Nenhum produto disponível no momento.'}
+              {!todosLoaded || todosProducts.length === 0
+                ? 'Carregando produtos…'
+                : 'Nenhum produto disponível no momento.'}
             </div>
           ) : (
             <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {todosFilteredProducts.map((product) => {
-                const produtor = getProdutor(product)
+                const produtor = produtorMap.get(product.produtorId ?? '')
                 return (
                   <ProductCard
                     key={product.id}
                     product={product}
                     produtorName={produtor?.name}
                     isOpen={produtor?.isOpen ?? false}
-                    onAdd={() => handleAddItem(product)}
+                    onAdd={handleAddItem}
                   />
                 )
               })}
@@ -292,7 +314,7 @@ export default function HortaCatalog({
                       key={product.id}
                       product={product}
                       isOpen={activeProdutor?.isOpen ?? false}
-                      onAdd={() => handleAddItem(product)}
+                      onAdd={handleAddItem}
                     />
                   ))}
                 </div>
@@ -306,10 +328,10 @@ export default function HortaCatalog({
 }
 
 // ──────────────────────────────────────────────────────
-//  Card de produto (reutilizável)
+//  Card de produto — memoizado para evitar re-render desnecessário
 // ──────────────────────────────────────────────────────
 
-function ProductCard({
+const ProductCard = memo(function ProductCard({
   product,
   produtorName,
   isOpen,
@@ -318,7 +340,7 @@ function ProductCard({
   product: SerializableProduct
   produtorName?: string
   isOpen: boolean
-  onAdd: () => void
+  onAdd: (p: SerializableProduct) => void
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
@@ -362,7 +384,7 @@ function ProductCard({
       </div>
       <button
         type="button"
-        onClick={onAdd}
+        onClick={() => onAdd(product)}
         disabled={!isOpen}
         title={isOpen ? 'Adicionar ao carrinho' : 'Produtor fechado no momento'}
         className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
@@ -374,4 +396,4 @@ function ProductCard({
       </button>
     </div>
   )
-}
+})

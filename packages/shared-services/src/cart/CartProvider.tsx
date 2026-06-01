@@ -1,13 +1,20 @@
 'use client'
 
 import type { Product } from '@marketplace/shared-types'
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 // ──────────────────────────────────────────────────────
 //  Tipos
 // ──────────────────────────────────────────────────────
 
-/** Dados mínimos da Horta necessários para o carrinho. */
 export interface CartHorta {
   id: string
   slug: string
@@ -22,15 +29,11 @@ export interface CartHorta {
   estimatedDeliveryTimeMax: number
 }
 
-/**
- * @deprecated Use CartHorta. Mantido apenas para compatibilidade de tipo
- * com código ainda não migrado.
- */
+/** @deprecated Use CartHorta. */
 export type CartProdutor = CartHorta
 
 export interface CartItem {
   product: Product
-  /** ID do produtor dono deste item dentro da horta */
   produtorId: string
   produtorName: string
   quantity: number
@@ -42,15 +45,18 @@ export interface CartState {
   items: CartItem[]
 }
 
-export interface CartContextValue {
+// Context split: DATA (changes on every cart mutation) vs ACTIONS (stable refs)
+// Components that only need addItem/openCart subscribe to ACTIONS only → no re-render on data changes.
+
+interface CartDataValue {
   horta: CartHorta | null
   items: CartItem[]
   itemCount: number
   subtotalInCents: number
-  /**
-   * Adiciona item ao carrinho.
-   * Retorna 'conflict' se for de uma horta diferente da atual.
-   */
+  isOpen: boolean
+}
+
+interface CartActionsValue {
   addItem: (
     product: Product,
     produtorInfo: { id: string; name: string },
@@ -61,16 +67,18 @@ export interface CartContextValue {
   updateQuantity: (productId: string, quantity: number) => void
   updateNotes: (productId: string, notes: string) => void
   clearCart: () => void
-  isOpen: boolean
   openCart: () => void
   closeCart: () => void
 }
 
+export interface CartContextValue extends CartDataValue, CartActionsValue {}
+
 // ──────────────────────────────────────────────────────
-//  Context
+//  Contexts
 // ──────────────────────────────────────────────────────
 
-const CartContext = createContext<CartContextValue | null>(null)
+const CartDataContext = createContext<CartDataValue | null>(null)
+const CartActionsContext = createContext<CartActionsValue | null>(null)
 
 const STORAGE_KEY = 'al_cart_v2'
 
@@ -89,7 +97,7 @@ function saveToStorage(state: CartState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
-    // quota exceeded — ignora
+    // quota exceeded
   }
 }
 
@@ -100,15 +108,41 @@ function saveToStorage(state: CartState) {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<CartState>({ horta: null, items: [] })
   const [isOpen, setIsOpen] = useState(false)
+  const stateRef = useRef(state)
 
+  // Keep ref in sync without causing re-renders
   useEffect(() => {
-    setState(loadFromStorage())
-  }, [])
-
-  useEffect(() => {
-    saveToStorage(state)
+    stateRef.current = state
   }, [state])
 
+  // Hydrate from storage once on mount
+  useEffect(() => {
+    const saved = loadFromStorage()
+    // Only update if storage has actual data
+    if (saved.horta || saved.items.length > 0) {
+      setState(saved)
+    }
+  }, [])
+
+  // Debounced localStorage save — avoids blocking the thread on rapid quantity taps
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    // Skip saving the initial empty state on mount
+    if (!state.horta && state.items.length === 0) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      saveToStorage(state)
+    }, 300)
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [state])
+
+  // ── Stable action callbacks ────────────────────────────────────────────────
+
+  // addItem reads horta from ref so it never needs to change reference
   const addItem = useCallback(
     (
       product: Product,
@@ -116,7 +150,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       horta: CartHorta,
       notes?: string,
     ): 'ok' | 'conflict' => {
-      if (state.horta && state.horta.id !== horta.id) {
+      const currentHorta = stateRef.current.horta
+      if (currentHorta && currentHorta.id !== horta.id) {
         return 'conflict'
       }
 
@@ -139,13 +174,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   ...(notes ? { notes } : {}),
                 },
               ]
-
         return { horta, items }
       })
 
       return 'ok'
     },
-    [state.horta],
+    [], // No deps — reads horta from ref
   )
 
   const removeItem = useCallback((productId: string) => {
@@ -184,36 +218,70 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState({ horta: null, items: [] })
   }, [])
 
-  const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0)
-  const subtotalInCents = state.items.reduce(
-    (sum, i) => sum + i.product.priceInCents * i.quantity,
-    0,
+  const openCart = useCallback(() => setIsOpen(true), [])
+  const closeCart = useCallback(() => setIsOpen(false), [])
+
+  // ── Memoized values ───────────────────────────────────────────────────────
+
+  const itemCount = useMemo(
+    () => state.items.reduce((sum, i) => sum + i.quantity, 0),
+    [state.items],
+  )
+
+  const subtotalInCents = useMemo(
+    () => state.items.reduce((sum, i) => sum + i.product.priceInCents * i.quantity, 0),
+    [state.items],
+  )
+
+  // Actions value is stable — only changes if callbacks change (which they don't)
+  const actionsValue = useMemo<CartActionsValue>(
+    () => ({ addItem, removeItem, updateQuantity, updateNotes, clearCart, openCart, closeCart }),
+    [addItem, removeItem, updateQuantity, updateNotes, clearCart, openCart, closeCart],
+  )
+
+  // Data value changes when cart state or drawer state changes
+  const dataValue = useMemo<CartDataValue>(
+    () => ({ horta: state.horta, items: state.items, itemCount, subtotalInCents, isOpen }),
+    [state.horta, state.items, itemCount, subtotalInCents, isOpen],
   )
 
   return (
-    <CartContext.Provider
-      value={{
-        horta: state.horta,
-        items: state.items,
-        itemCount,
-        subtotalInCents,
-        addItem,
-        removeItem,
-        updateQuantity,
-        updateNotes,
-        clearCart,
-        isOpen,
-        openCart: () => setIsOpen(true),
-        closeCart: () => setIsOpen(false),
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+    <CartActionsContext.Provider value={actionsValue}>
+      <CartDataContext.Provider value={dataValue}>
+        {children}
+      </CartDataContext.Provider>
+    </CartActionsContext.Provider>
   )
 }
 
+// ──────────────────────────────────────────────────────
+//  Hooks
+// ──────────────────────────────────────────────────────
+
+/** Full cart access. Re-renders on any cart or drawer state change. */
 export function useCart(): CartContextValue {
-  const ctx = useContext(CartContext)
-  if (!ctx) throw new Error('useCart deve ser usado dentro de <CartProvider>')
-  return ctx
+  const data = useContext(CartDataContext)
+  const actions = useContext(CartActionsContext)
+  if (!data || !actions) throw new Error('useCart deve ser usado dentro de <CartProvider>')
+  return useMemo(() => ({ ...data, ...actions }), [data, actions])
+}
+
+/**
+ * Cart actions only — stable references, does NOT re-render when cart data changes.
+ * Use in catalog components that only need addItem/openCart/clearCart.
+ */
+export function useCartActions(): CartActionsValue {
+  const actions = useContext(CartActionsContext)
+  if (!actions) throw new Error('useCartActions deve ser usado dentro de <CartProvider>')
+  return actions
+}
+
+/**
+ * Cart data only — re-renders on data changes.
+ * Use in components that display cart contents (Header badge, CartDrawer).
+ */
+export function useCartData(): CartDataValue {
+  const data = useContext(CartDataContext)
+  if (!data) throw new Error('useCartData deve ser usado dentro de <CartProvider>')
+  return data
 }

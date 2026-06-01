@@ -7,7 +7,8 @@ import {
   listAddresses,
   updateAddress,
   useAuth,
-  useCart,
+  useCartActions,
+  useCartData,
   validateCoupon,
 } from '@marketplace/shared-services'
 import type { CouponPreview } from '@marketplace/shared-services'
@@ -97,7 +98,8 @@ async function fetchViaCep(cep: string): Promise<Partial<AddressForm> | null> {
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { items, horta, subtotalInCents, clearCart } = useCart()
+  const { items, horta, subtotalInCents } = useCartData()
+  const { clearCart } = useCartActions()
 
   // Endereços
   const [addresses, setAddresses] = useState<Address[]>([])

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCart } from '@marketplace/shared-services'
+import { useCartActions, useCartData } from '@marketplace/shared-services'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import Image from 'next/image'
@@ -8,15 +8,8 @@ import Link from 'next/link'
 import { useEffect } from 'react'
 
 export default function CartDrawer() {
-  const {
-    isOpen,
-    closeCart,
-    items,
-    horta,
-    subtotalInCents,
-    removeItem,
-    updateQuantity,
-  } = useCart()
+  const { isOpen, items, horta, subtotalInCents } = useCartData()
+  const { closeCart, removeItem, updateQuantity } = useCartActions()
 
   // Fecha com Escape
   useEffect(() => {

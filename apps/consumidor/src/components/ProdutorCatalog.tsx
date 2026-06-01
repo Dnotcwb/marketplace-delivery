@@ -3,13 +3,13 @@
 import {
   subscribeToCategories,
   subscribeToProducts,
-  useCart,
+  useCartActions,
 } from '@marketplace/shared-services'
 import type { CartHorta } from '@marketplace/shared-services'
 import type { Category, Horta, Product, Produtor } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 
 type SerializableProdutor = Omit<Produtor, 'createdAt' | 'updatedAt'>
 type SerializableHorta = Omit<Horta, 'createdAt' | 'updatedAt'> | null
@@ -29,7 +29,8 @@ export default function ProdutorCatalog({
   initialProducts,
   horta,
 }: Props) {
-  const { addItem, clearCart, openCart } = useCart()
+  // Only subscribe to ACTIONS — this component never re-renders due to cart DATA changes
+  const { addItem, clearCart, openCart } = useCartActions()
   const [categories, setCategories] = useState<SerializableCategory[]>(initialCategories)
   const [allProducts, setAllProducts] = useState<SerializableProduct[]>(initialProducts)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
@@ -50,7 +51,8 @@ export default function ProdutorCatalog({
     return unsub
   }, [produtor.id])
 
-  function buildCartHorta(): CartHorta {
+  // Stable cartHorta object — recomputed only when horta/produtor props change
+  const cartHorta = useMemo<CartHorta>(() => {
     if (horta) {
       return {
         id: horta.id,
@@ -75,36 +77,41 @@ export default function ProdutorCatalog({
       estimatedDeliveryTimeMin: produtor.estimatedDeliveryTimeMin,
       estimatedDeliveryTimeMax: produtor.estimatedDeliveryTimeMax,
     }
-  }
+  }, [horta, produtor.id, produtor.slug, produtor.name, produtor.deliveryFeeInCents, produtor.minOrderValueInCents, produtor.estimatedDeliveryTimeMin, produtor.estimatedDeliveryTimeMax])
 
-  function handleAddItem(product: SerializableProduct) {
-    const result = addItem(
-      product as Product,
-      { id: produtor.id, name: produtor.name },
-      buildCartHorta(),
-    )
-    if (result === 'conflict') {
-      setConflictProduct(product)
-    } else {
-      openCart()
-    }
-  }
+  // Memoized filter — only recomputes when products or active category changes
+  const products = useMemo(
+    () => allProducts.filter((p) => p.categoryId === activeCategoryId && p.available),
+    [allProducts, activeCategoryId],
+  )
 
-  function handleConflictConfirm() {
+  const handleAddItem = useCallback(
+    (product: SerializableProduct) => {
+      const result = addItem(
+        product as Product,
+        { id: produtor.id, name: produtor.name },
+        cartHorta,
+      )
+      if (result === 'conflict') {
+        setConflictProduct(product)
+      } else {
+        openCart()
+      }
+    },
+    [addItem, openCart, produtor.id, produtor.name, cartHorta],
+  )
+
+  const handleConflictConfirm = useCallback(() => {
     if (!conflictProduct) return
     clearCart()
     addItem(
       conflictProduct as Product,
       { id: produtor.id, name: produtor.name },
-      buildCartHorta(),
+      cartHorta,
     )
     setConflictProduct(null)
     openCart()
-  }
-
-  const products = allProducts.filter(
-    (p) => p.categoryId === activeCategoryId && p.available,
-  )
+  }, [addItem, clearCart, openCart, conflictProduct, produtor.id, produtor.name, cartHorta])
 
   return (
     <>
@@ -169,69 +176,12 @@ export default function ProdutorCatalog({
           ) : (
             <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {products.map((product) => (
-                <div
+                <ProductCard
                   key={product.id}
-                  className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm"
-                >
-                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
-                    {product.photoUrl ? (
-                      <Image
-                        src={product.photoUrl}
-                        alt={product.name}
-                        width={64}
-                        height={64}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl">
-                        🥬
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-sm font-semibold text-neutral-900">
-                        {product.name}
-                      </p>
-                      {product.isOrganic && (
-                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
-                          Org.
-                        </span>
-                      )}
-                    </div>
-                    {product.description && (
-                      <p className="truncate text-xs text-neutral-500">{product.description}</p>
-                    )}
-                    <p className="mt-1 text-sm font-bold text-brand-600">
-                      {(product.priceInCents / 100).toLocaleString('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      })}
-                      <span className="ml-1 text-xs font-normal text-neutral-400">
-                        / {PRODUCT_UNIT_LABELS[product.unit]}
-                      </span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddItem(product)}
-                    disabled={!produtor.isOpen}
-                    title={
-                      produtor.isOpen ? 'Adicionar ao carrinho' : 'Produtor fechado no momento'
-                    }
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label={`Adicionar ${product.name} ao carrinho`}
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                  product={product}
+                  isOpen={produtor.isOpen}
+                  onAdd={handleAddItem}
+                />
               ))}
             </div>
           )}
@@ -240,3 +190,73 @@ export default function ProdutorCatalog({
     </>
   )
 }
+
+// ──────────────────────────────────────────────────────
+//  Card de produto — memoizado para evitar re-render desnecessário
+// ──────────────────────────────────────────────────────
+
+const ProductCard = memo(function ProductCard({
+  product,
+  isOpen,
+  onAdd,
+}: {
+  product: SerializableProduct
+  isOpen: boolean
+  onAdd: (p: SerializableProduct) => void
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
+      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+        {product.photoUrl ? (
+          <Image
+            src={product.photoUrl}
+            alt={product.name}
+            width={64}
+            height={64}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-2xl">
+            🥬
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-semibold text-neutral-900">
+            {product.name}
+          </p>
+          {product.isOrganic && (
+            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+              Org.
+            </span>
+          )}
+        </div>
+        {product.description && (
+          <p className="truncate text-xs text-neutral-500">{product.description}</p>
+        )}
+        <p className="mt-1 text-sm font-bold text-brand-600">
+          {(product.priceInCents / 100).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })}
+          <span className="ml-1 text-xs font-normal text-neutral-400">
+            / {PRODUCT_UNIT_LABELS[product.unit]}
+          </span>
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onAdd(product)}
+        disabled={!isOpen}
+        title={isOpen ? 'Adicionar ao carrinho' : 'Produtor fechado no momento'}
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label={`Adicionar ${product.name} ao carrinho`}
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+    </div>
+  )
+})
