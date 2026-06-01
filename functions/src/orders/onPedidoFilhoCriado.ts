@@ -7,36 +7,33 @@ function centsToBrl(cents: number): string {
 }
 
 /**
- * Notifica o produtor sempre que um novo pedido é criado.
- * Escreve em users/{ownerUid}/notifications para que o NotificationBell
- * do app do produtor receba o evento em tempo real.
+ * Notifica o produtor correto quando um pedido_filho é criado.
+ * Substitui a notificação em onOrderCreated que usava apenas o primeiro produtor
+ * do pedido pai — o que causava silêncio para todos os outros produtores da horta.
  */
-export const onOrderCreated = onDocumentCreated(
-  { document: 'orders/{orderId}', region: 'southamerica-east1' },
+export const onPedidoFilhoCriado = onDocumentCreated(
+  { document: 'pedidos_filhos/{filhoId}', region: 'southamerica-east1' },
   async (event) => {
     const data = event.data?.data()
     if (!data) return
 
-    const orderId      = event.params.orderId
-    // onPedidoFilhoCriado handles per-producer notifications for all horta orders.
-    // This function is kept for potential future use (e.g., admin audit, analytics).
-    if (data['hortaId']) return
-
     const produtorId   = data['produtorId'] as string | undefined
+    const pedidoPaiId  = data['pedidoPaiId'] as string | undefined
     const customerName = (data['customerName'] as string | undefined) ?? 'cliente'
-    const totalInCents = data['totalInCents'] as number | undefined
+    const items        = (data['items'] as Array<{ priceInCents: number; quantity: number }> | undefined) ?? []
 
-    if (!produtorId || !totalInCents) return
+    if (!produtorId || !pedidoPaiId) return
+
+    const subtotalInCents = items.reduce((sum, it) => sum + it.priceInCents * it.quantity, 0)
 
     const db = admin.firestore()
-
     const produtorSnap = await db.collection('produtores').doc(produtorId).get()
     if (!produtorSnap.exists) return
 
     const ownerUid = produtorSnap.data()?.['ownerUid'] as string | undefined
     if (!ownerUid) return
 
-    const msg = `Novo pedido de ${customerName} — ${centsToBrl(totalInCents)}`
+    const msg = `Novo pedido de ${customerName} — ${centsToBrl(subtotalInCents)}`
 
     await db
       .collection('users')
@@ -44,7 +41,7 @@ export const onOrderCreated = onDocumentCreated(
       .collection('notifications')
       .add({
         type:      'new_order',
-        orderId,
+        orderId:   pedidoPaiId,
         status:    'pending',
         message:   msg,
         read:      false,
@@ -57,6 +54,6 @@ export const onOrderCreated = onDocumentCreated(
       { title: 'Novo pedido! 🌿', body: msg },
     )
 
-    console.log(`onOrderCreated: pedido ${orderId} notificou produtor ${ownerUid}`)
+    console.log(`onPedidoFilhoCriado: filho ${event.params.filhoId} notificou produtor ${ownerUid}`)
   },
 )
