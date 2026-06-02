@@ -6,11 +6,11 @@ import { useEffect } from 'react'
 import { useAuth } from './AuthProvider'
 
 export function useRequireRole(expectedRole: UserRole, requireApproval = false) {
-  const { user, claims, loading } = useAuth()
+  const { user, claims, loading, claimsLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (loading) return
+    if (loading || claimsLoading) return
 
     if (!user) {
       router.replace('/login')
@@ -25,7 +25,7 @@ export function useRequireRole(expectedRole: UserRole, requireApproval = false) 
     if (requireApproval && !claims.approved) {
       router.replace('/aguardando-aprovacao')
     }
-  }, [user, claims, loading, expectedRole, requireApproval, router])
+  }, [user, claims, loading, claimsLoading, expectedRole, requireApproval, router])
 
-  return { user, claims, loading }
+  return { user, claims, loading, claimsLoading }
 }

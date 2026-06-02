@@ -9,12 +9,12 @@ import { useEffect, useState } from 'react'
 type GuardState = 'checking' | 'ready' | 'activating' | 'go_configurar' | 'go_aguardando' | 'go_login' | 'error'
 
 export default function EntregadorGuard({ children }: { children: React.ReactNode }) {
-  const { user, claims, loading } = useAuth()
+  const { user, claims, loading, claimsLoading } = useAuth()
   const router = useRouter()
   const [state, setState] = useState<GuardState>('checking')
 
   useEffect(() => {
-    if (loading) return
+    if (loading || claimsLoading) return
     if (!user) { setState('go_login'); return }
 
     async function check() {
@@ -66,7 +66,7 @@ export default function EntregadorGuard({ children }: { children: React.ReactNod
     }
 
     check()
-  }, [user, loading]) // eslint-disable-line react-hooks/exhaustive-deps — claims intencionalmente omitido para evitar loop
+  }, [user, loading, claimsLoading]) // eslint-disable-line react-hooks/exhaustive-deps — claims intencionalmente omitido; claimsLoading garante que aguardamos o token antes de decidir
 
   // Navegação fora do render
   useEffect(() => {

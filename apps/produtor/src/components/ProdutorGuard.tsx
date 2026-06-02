@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export default function ProdutorGuard({ children }: { children: React.ReactNode }) {
-  const { user, claims, loading } = useAuth()
+  const { user, claims, loading, claimsLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (loading) return
+    if (loading || claimsLoading) return
 
     if (!user) {
       router.replace('/login')
@@ -28,9 +28,9 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
 
     // Outro role (admin, entregador) → não pertence a este app
     router.replace('/acesso-negado')
-  }, [user, claims, loading, router])
+  }, [user, claims, loading, claimsLoading, router])
 
-  if (loading) {
+  if (loading || claimsLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-neutral-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />

@@ -21,7 +21,10 @@ export interface AuthClaims {
 interface AuthContextValue {
   user: User | null
   claims: AuthClaims | null
+  /** True until Firebase resolves the user identity from cache (~50ms). Use this to gate basic auth checks. */
   loading: boolean
+  /** True until getIdTokenResult() resolves (~300–500ms). Use this in role-based guards before reading `claims`. */
+  claimsLoading: boolean
   signInWithEmail: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   logout: () => Promise<void>
@@ -33,26 +36,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [claims, setClaims] = useState<AuthClaims | null>(null)
   const [loading, setLoading] = useState(true)
+  const [claimsLoading, setClaimsLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
+      setLoading(false) // unblocks UI immediately — user identity known from IndexedDB cache
 
       if (firebaseUser) {
-        const tokenResult = await firebaseUser.getIdTokenResult()
-        const role = (tokenResult.claims['role'] as UserRole | undefined) ?? 'cliente'
-        const produtorIds = tokenResult.claims['produtorIds'] as string[] | undefined
-        const approved = tokenResult.claims['approved'] as boolean | undefined
-        setClaims({
-          role,
-          ...(produtorIds !== undefined && { produtorIds }),
-          ...(approved !== undefined && { approved }),
+        setClaimsLoading(true)
+        firebaseUser.getIdTokenResult().then((tokenResult) => {
+          const role = (tokenResult.claims['role'] as UserRole | undefined) ?? 'cliente'
+          const produtorIds = tokenResult.claims['produtorIds'] as string[] | undefined
+          const approved = tokenResult.claims['approved'] as boolean | undefined
+          setClaims({
+            role,
+            ...(produtorIds !== undefined && { produtorIds }),
+            ...(approved !== undefined && { approved }),
+          })
+          setClaimsLoading(false)
         })
       } else {
         setClaims(null)
+        setClaimsLoading(false)
       }
-
-      setLoading(false)
     })
 
     return unsubscribe
@@ -72,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, signInWithEmail, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, claims, loading, claimsLoading, signInWithEmail, signInWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   )
