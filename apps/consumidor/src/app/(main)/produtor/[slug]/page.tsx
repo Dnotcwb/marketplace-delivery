@@ -30,8 +30,12 @@ const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const getProdutor = cache(async (slug: string) => getProdutorBySlug(slug))
 
 export async function generateStaticParams() {
-  const produtores = await listProdutoresAprovados()
-  return produtores.map((p) => ({ slug: p.slug }))
+  try {
+    const produtores = await listProdutoresAprovados()
+    return produtores.map((p) => ({ slug: p.slug }))
+  } catch {
+    return []
+  }
 }
 
 export async function generateMetadata({

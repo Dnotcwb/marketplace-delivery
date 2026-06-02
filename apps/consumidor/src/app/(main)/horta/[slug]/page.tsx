@@ -18,8 +18,12 @@ export const dynamicParams = true
 const getHorta = cache(async (slug: string) => getHortaBySlug(slug))
 
 export async function generateStaticParams() {
-  const hortas = await listHortasAtivas()
-  return hortas.map((h) => ({ slug: h.slug }))
+  try {
+    const hortas = await listHortasAtivas()
+    return hortas.map((h) => ({ slug: h.slug }))
+  } catch {
+    return []
+  }
 }
 
 export async function generateMetadata({

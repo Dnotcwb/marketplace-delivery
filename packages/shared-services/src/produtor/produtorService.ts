@@ -27,7 +27,11 @@ export async function getProdutorById(id: string): Promise<Produtor | null> {
 }
 
 export async function getProdutorBySlug(slug: string): Promise<Produtor | null> {
-  const q = query(collection(firestore, COL), where('slug', '==', slug))
+  const q = query(
+    collection(firestore, COL),
+    where('slug', '==', slug),
+    where('status', '==', 'approved' satisfies ProdutorStatus),
+  )
   const snap = await getDocs(q)
   if (snap.empty) return null
   const d = snap.docs[0]!
