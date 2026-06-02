@@ -11,6 +11,7 @@ interface Props {
   onBack: () => void
 }
 
+
 export default function Step2Horta({ initialData, onNext, onBack }: Props) {
   const [hortas, setHortas] = useState<Horta[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +28,14 @@ export default function Step2Horta({ initialData, onNext, onBack }: Props) {
     e.preventDefault()
     const horta = hortas.find((h) => h.id === selectedId)
     if (!horta) return
-    onNext({ hortaId: horta.id, address: horta.address })
+    onNext({
+      hortaId: horta.id,
+      address: horta.address,
+      deliveryFeeInCents: horta.deliveryFeeInCents,
+      minOrderValueInCents: horta.minOrderValueInCents,
+      estimatedDeliveryTimeMin: horta.estimatedDeliveryTimeMin,
+      estimatedDeliveryTimeMax: horta.estimatedDeliveryTimeMax,
+    })
   }
 
   return (

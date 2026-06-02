@@ -4,7 +4,6 @@ import { firestore, storage } from '@marketplace/shared-firebase'
 import { createProdutor, useAuth } from '@marketplace/shared-services'
 import type {
   ProdutorAddress,
-  ProdutorCertification,
   ProdutorHours,
 } from '@marketplace/shared-types'
 import { slugify } from '@marketplace/shared-utils'
@@ -15,10 +14,9 @@ import { useRouter } from 'next/navigation'
 import Step1Basicos from './_steps/Step1Basicos'
 import Step2Endereco from './_steps/Step2Endereco'
 import Step3Horarios from './_steps/Step3Horarios'
-import Step4Operacao from './_steps/Step4Operacao'
 import Step5Fotos from './_steps/Step5Fotos'
 
-const STEPS = ['Dados básicos', 'Horta', 'Horários', 'Operação', 'Fotos']
+const STEPS = ['Dados básicos', 'Horta', 'Horários', 'Fotos']
 
 export type Step1Data = {
   name: string
@@ -30,6 +28,10 @@ export type Step1Data = {
 export type Step2Data = {
   hortaId: string
   address: ProdutorAddress
+  deliveryFeeInCents: number
+  minOrderValueInCents: number
+  estimatedDeliveryTimeMin: number
+  estimatedDeliveryTimeMax: number
 }
 
 export type Step3Data = {
@@ -37,14 +39,6 @@ export type Step3Data = {
 }
 
 export type Step4Data = {
-  deliveryFeeInCents: number
-  minOrderValueInCents: number
-  estimatedDeliveryTimeMin: number
-  estimatedDeliveryTimeMax: number
-  certifications: ProdutorCertification[]
-}
-
-export type Step5Data = {
   logoFile?: File
   bannerFile?: File
 }
@@ -78,7 +72,6 @@ export default function ConfigurarPage() {
   const [step1, setStep1] = useState<Step1Data | null>(null)
   const [step2, setStep2] = useState<Step2Data | null>(null)
   const [step3, setStep3] = useState<Step3Data | null>(null)
-  const [step4, setStep4] = useState<Step4Data | null>(null)
 
   // ID gerado uma única vez para toda a sessão do wizard
   const produtorId = useMemo(
@@ -86,8 +79,8 @@ export default function ConfigurarPage() {
     [],
   )
 
-  async function handleFinalStep(data: Step5Data) {
-    if (!user || !step1 || !step2 || !step3 || !step4) return
+  async function handleFinalStep(data: Step4Data) {
+    if (!user || !step1 || !step2 || !step3) return
     setSubmitting(true)
     setError(null)
 
@@ -124,12 +117,12 @@ export default function ConfigurarPage() {
         ...(bannerUrl ? { bannerUrl } : {}),
         isOpen: false,
         openingHours: step3.openingHours,
-        deliveryFeeInCents: step4.deliveryFeeInCents,
-        minOrderValueInCents: step4.minOrderValueInCents,
-        estimatedDeliveryTimeMin: step4.estimatedDeliveryTimeMin,
-        estimatedDeliveryTimeMax: step4.estimatedDeliveryTimeMax,
+        deliveryFeeInCents: step2.deliveryFeeInCents,
+        minOrderValueInCents: step2.minOrderValueInCents,
+        estimatedDeliveryTimeMin: step2.estimatedDeliveryTimeMin,
+        estimatedDeliveryTimeMax: step2.estimatedDeliveryTimeMax,
         deliveryRadiusKm: null,
-        certifications: step4.certifications,
+        certifications: [],
         status: 'pending',
         commission: 0,
       })
@@ -214,16 +207,9 @@ export default function ConfigurarPage() {
           />
         )}
         {step === 3 && (
-          <Step4Operacao
-            initialData={step4}
-            onNext={(d: Step4Data) => { setStep4(d); setStep(4) }}
-            onBack={() => setStep(2)}
-          />
-        )}
-        {step === 4 && (
           <Step5Fotos
             onNext={handleFinalStep}
-            onBack={() => setStep(3)}
+            onBack={() => setStep(2)}
             submitting={submitting}
           />
         )}

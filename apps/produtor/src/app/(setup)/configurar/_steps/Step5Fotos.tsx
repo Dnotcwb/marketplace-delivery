@@ -2,10 +2,10 @@
 
 import Image from 'next/image'
 import { useRef, useState } from 'react'
-import type { Step5Data } from '../page'
+import type { Step4Data } from '../page'
 
 interface Props {
-  onNext: (data: Step5Data) => void
+  onNext: (data: Step4Data) => void
   onBack: () => void
   submitting: boolean
 }
