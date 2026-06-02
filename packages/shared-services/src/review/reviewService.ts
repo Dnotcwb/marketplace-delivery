@@ -50,6 +50,21 @@ export function subscribeToMyOrderReview(
   })
 }
 
+export function subscribeToAllMyOrderReviews(
+  orderId: string,
+  authorUid: string,
+  callback: (reviews: Review[]) => void,
+): Unsubscribe {
+  const q = query(
+    collection(firestore, COL),
+    where('orderId', '==', orderId),
+    where('authorUid', '==', authorUid),
+  )
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Review))
+  })
+}
+
 export function subscribeToAllReviews(
   callback: (reviews: Review[]) => void,
 ): Unsubscribe {

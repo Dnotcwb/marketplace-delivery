@@ -2,8 +2,8 @@
 
 import { firestore } from '@marketplace/shared-firebase'
 import {
+  subscribeToAllMyOrderReviews,
   subscribeToMyOrderDriverReview,
-  subscribeToMyOrderReview,
   submitDriverReview,
   submitReview,
   useAuth,
@@ -11,7 +11,7 @@ import {
 import type { DriverReview, Order, OrderStatus, Review, ReviewRating } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { arrayUnion, doc, getDoc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
+import { arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, Timestamp, updateDoc, where } from 'firebase/firestore'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -68,12 +68,13 @@ export default function PedidoPage() {
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
 
-  const [myReview, setMyReview] = useState<Review | null | undefined>(undefined)
-  const [reviewRating, setReviewRating] = useState<ReviewRating | 0>(0)
-  const [reviewComment, setReviewComment] = useState('')
-  const [submittingReview, setSubmittingReview] = useState(false)
-  const [reviewError, setReviewError] = useState<string | null>(null)
-  const [reviewDone, setReviewDone] = useState(false)
+  const [orderProdutores, setOrderProdutores] = useState<Array<{ id: string; name: string }> | null>(null)
+  const [myReviews, setMyReviews] = useState<Map<string, Review>>(new Map())
+  const [reviewRatings, setReviewRatings] = useState<Record<string, ReviewRating | 0>>({})
+  const [reviewComments, setReviewComments] = useState<Record<string, string>>({})
+  const [reviewSubmitting, setReviewSubmitting] = useState<Record<string, boolean>>({})
+  const [reviewDone, setReviewDone] = useState<Record<string, boolean>>({})
+  const [reviewErrors, setReviewErrors] = useState<Record<string, string | null>>({})
 
   const [myDriverReview, setMyDriverReview] = useState<DriverReview | null | undefined>(undefined)
   const [driverReviewRating, setDriverReviewRating] = useState<ReviewRating | 0>(0)
@@ -85,9 +86,35 @@ export default function PedidoPage() {
 
   useEffect(() => {
     if (!orderId || !user) return
-    const unsub = subscribeToMyOrderReview(orderId, user.uid, (r) => setMyReview(r))
+    const unsub = subscribeToAllMyOrderReviews(orderId, user.uid, (reviews) => {
+      const map = new Map<string, Review>()
+      reviews.forEach((r) => map.set(r.produtorId, r))
+      setMyReviews(map)
+    })
     return unsub
   }, [orderId, user])
+
+  useEffect(() => {
+    if (!order) return
+    if (order.hortaId) {
+      getDocs(
+        query(collection(firestore, 'pedidos_filhos'), where('pedidoPaiId', '==', order.id)),
+      ).then((snap) => {
+        const seen = new Set<string>()
+        const prods: Array<{ id: string; name: string }> = []
+        snap.docs.forEach((d) => {
+          const pid = d.data()['produtorId'] as string
+          if (!seen.has(pid)) {
+            seen.add(pid)
+            prods.push({ id: pid, name: d.data()['produtorName'] as string })
+          }
+        })
+        setOrderProdutores(prods)
+      })
+    } else {
+      setOrderProdutores([{ id: order.produtorId, name: order.produtorName }])
+    }
+  }, [order?.id, order?.hortaId, order?.produtorId, order?.produtorName])
 
   useEffect(() => {
     if (!orderId || !user) return
@@ -203,25 +230,26 @@ export default function PedidoPage() {
     }
   }
 
-  async function handleSubmitReview() {
-    if (!order || !user || reviewRating === 0) return
-    setSubmittingReview(true)
-    setReviewError(null)
+  async function handleSubmitReview(produtorId: string, produtorName: string) {
+    const rating = reviewRatings[produtorId] ?? 0
+    if (!order || !user || rating === 0) return
+    setReviewSubmitting((prev) => ({ ...prev, [produtorId]: true }))
+    setReviewErrors((prev) => ({ ...prev, [produtorId]: null }))
     try {
       await submitReview({
         authorUid: user.uid,
         authorName: user.displayName ?? 'Anônimo',
-        produtorId: order.produtorId,
-        produtorName: order.produtorName,
+        produtorId,
+        produtorName,
         orderId: order.id,
-        rating: reviewRating as ReviewRating,
-        comment: reviewComment.trim() || undefined,
+        rating: rating as ReviewRating,
+        comment: (reviewComments[produtorId] ?? '').trim() || undefined,
       })
-      setReviewDone(true)
+      setReviewDone((prev) => ({ ...prev, [produtorId]: true }))
     } catch {
-      setReviewError('Não foi possível enviar a avaliação. Tente novamente.')
+      setReviewErrors((prev) => ({ ...prev, [produtorId]: 'Não foi possível enviar a avaliação. Tente novamente.' }))
     } finally {
-      setSubmittingReview(false)
+      setReviewSubmitting((prev) => ({ ...prev, [produtorId]: false }))
     }
   }
 
@@ -551,78 +579,74 @@ export default function PedidoPage() {
         </div>
       )}
 
-      {/* Avaliação — só aparece após entrega */}
-      {order.status === 'delivered' && (
-        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-bold text-neutral-900">Avalie sua experiência</h2>
+      {/* Avaliação por produtor — uma seção por produtor do pedido */}
+      {order.status === 'delivered' && orderProdutores && orderProdutores.map(({ id: pId, name: pName }) => {
+        const existingReview = myReviews.get(pId)
+        const rating = reviewRatings[pId] ?? 0
+        const comment = reviewComments[pId] ?? ''
+        const submitting = reviewSubmitting[pId] ?? false
+        const done = reviewDone[pId] ?? false
+        const error = reviewErrors[pId] ?? null
 
-          {myReview !== undefined && myReview !== null ? (
-            /* Avaliação já enviada — exibição read-only */
-            <div>
-              <div className="mb-2 flex gap-0.5">
-                {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
-                  <span key={s} className={s <= myReview.rating ? 'text-xl text-amber-400' : 'text-xl text-neutral-200'}>
-                    ★
-                  </span>
-                ))}
-              </div>
-              {myReview.comment && (
-                <p className="text-sm text-neutral-600">{myReview.comment}</p>
-              )}
-              <p className="mt-2 text-xs text-neutral-400">Avaliação enviada</p>
-            </div>
-          ) : reviewDone ? (
-            <p className="text-sm font-medium text-emerald-600">Obrigado pela sua avaliação!</p>
-          ) : (
-            /* Formulário de avaliação */
-            <div className="space-y-4">
+        return (
+          <div key={pId} className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5">
+            <h2 className="mb-1 text-sm font-bold text-neutral-900">Avalie sua experiência</h2>
+            <p className="mb-4 text-xs text-neutral-400">{pName}</p>
+
+            {existingReview ? (
               <div>
-                <p className="mb-2 text-xs font-medium text-neutral-500">Sua nota para {order.produtorName}</p>
+                <div className="mb-2 flex gap-0.5">
+                  {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
+                    <span key={s} className={s <= existingReview.rating ? 'text-xl text-amber-400' : 'text-xl text-neutral-200'}>★</span>
+                  ))}
+                </div>
+                {existingReview.comment && (
+                  <p className="text-sm text-neutral-600">{existingReview.comment}</p>
+                )}
+                <p className="mt-2 text-xs text-neutral-400">Avaliação enviada</p>
+              </div>
+            ) : done ? (
+              <p className="text-sm font-medium text-emerald-600">Obrigado pela sua avaliação!</p>
+            ) : (
+              <div className="space-y-4">
                 <div className="flex gap-1">
                   {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
                     <button
                       key={s}
                       type="button"
-                      onClick={() => setReviewRating(s)}
-                      className={[
-                        'text-3xl transition-colors',
-                        s <= reviewRating ? 'text-amber-400' : 'text-neutral-200 hover:text-amber-200',
-                      ].join(' ')}
+                      onClick={() => setReviewRatings((prev) => ({ ...prev, [pId]: s as ReviewRating }))}
+                      className={['text-3xl transition-colors', s <= rating ? 'text-amber-400' : 'text-neutral-200 hover:text-amber-200'].join(' ')}
                       aria-label={`${s} estrela${s > 1 ? 's' : ''}`}
-                    >
-                      ★
-                    </button>
+                    >★</button>
                   ))}
                 </div>
+
+                <div>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setReviewComments((prev) => ({ ...prev, [pId]: e.target.value }))}
+                    placeholder="Conte como foi sua experiência (opcional)"
+                    rows={3}
+                    maxLength={500}
+                    className="w-full resize-none rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  />
+                  <p className="mt-0.5 text-right text-xs text-neutral-400">{comment.length}/500</p>
+                </div>
+
+                {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+
+                <button
+                  onClick={() => handleSubmitReview(pId, pName)}
+                  disabled={rating === 0 || submitting}
+                  className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting ? 'Enviando…' : 'Enviar avaliação'}
+                </button>
               </div>
-
-              <div>
-                <textarea
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="Conte como foi sua experiência (opcional)"
-                  rows={3}
-                  maxLength={500}
-                  className="w-full resize-none rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                />
-                <p className="mt-0.5 text-right text-xs text-neutral-400">{reviewComment.length}/500</p>
-              </div>
-
-              {reviewError && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{reviewError}</p>
-              )}
-
-              <button
-                onClick={handleSubmitReview}
-                disabled={reviewRating === 0 || submittingReview}
-                className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submittingReview ? 'Enviando…' : 'Enviar avaliação'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })}
 
       {/* Avaliação do entregador — só aparece após entrega e se houve entregador */}
       {order.status === 'delivered' && order.deliveryDriverId && (
