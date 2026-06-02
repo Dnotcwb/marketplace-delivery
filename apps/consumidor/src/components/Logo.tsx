@@ -24,13 +24,8 @@ export default function Logo({ variant = 'full', size = 36, className = '', dark
         priority
       />
       {variant === 'full' && (
-        <div className="flex flex-col leading-none">
-          <span className={`text-sm font-bold tracking-tight ${dark ? 'text-white' : 'text-neutral-900'}`}>
-            Bro
-          </span>
-          <span className="text-sm font-bold tracking-tight text-brand-500">
-            ta
-          </span>
+        <div className="leading-none">
+          <span className={`text-sm font-bold tracking-tight ${dark ? 'text-white' : 'text-neutral-900'}`}>Bro</span><span className="text-sm font-bold tracking-tight text-brand-500">ta</span>
         </div>
       )}
     </div>
