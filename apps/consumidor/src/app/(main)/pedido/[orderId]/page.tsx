@@ -96,6 +96,7 @@ export default function PedidoPage() {
 
   useEffect(() => {
     if (!order || !user) return
+    console.log('[pedido] order.hortaId:', order.hortaId, '| deliveryDriverId:', order.deliveryDriverId, '| status:', order.status)
     if (order.hortaId) {
       // customerId no where é obrigatório para satisfazer a security rule de query
       getDocs(
@@ -105,6 +106,7 @@ export default function PedidoPage() {
           where('customerId', '==', user.uid),
         ),
       ).then((snap) => {
+        console.log('[pedido] pedidos_filhos count:', snap.size, snap.docs.map((d) => d.data()['produtorId']))
         const seen = new Set<string>()
         const prods: Array<{ id: string; name: string }> = []
         snap.docs.forEach((d) => {
@@ -115,7 +117,8 @@ export default function PedidoPage() {
           }
         })
         setOrderProdutores(prods.length > 0 ? prods : [{ id: order.produtorId, name: order.produtorName }])
-      }).catch(() => {
+      }).catch((err) => {
+        console.error('[pedido] pedidos_filhos query error:', err?.code, err?.message)
         setOrderProdutores([{ id: order.produtorId, name: order.produtorName }])
       })
     } else {
