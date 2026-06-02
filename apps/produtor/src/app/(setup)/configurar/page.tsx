@@ -18,7 +18,7 @@ import Step3Horarios from './_steps/Step3Horarios'
 import Step4Operacao from './_steps/Step4Operacao'
 import Step5Fotos from './_steps/Step5Fotos'
 
-const STEPS = ['Dados básicos', 'Endereço', 'Horários', 'Operação', 'Fotos']
+const STEPS = ['Dados básicos', 'Horta', 'Horários', 'Operação', 'Fotos']
 
 export type Step1Data = {
   name: string
@@ -28,6 +28,7 @@ export type Step1Data = {
 }
 
 export type Step2Data = {
+  hortaId: string
   address: ProdutorAddress
 }
 
@@ -117,6 +118,7 @@ export default function ConfigurarPage() {
         email: user.email ?? undefined,
         phone: step1.phone,
         ...(step1.document ? { document: step1.document } : {}),
+        hortaId: step2.hortaId,
         address: step2.address,
         ...(logoUrl ? { logoUrl } : {}),
         ...(bannerUrl ? { bannerUrl } : {}),
