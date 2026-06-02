@@ -15,3 +15,17 @@ export interface Review {
   createdAt: Timestamp
   updatedAt: Timestamp
 }
+
+export interface DriverReview {
+  id: string
+  authorUid: string
+  authorName: string
+  driverUid: string
+  driverName: string
+  orderId: string
+  rating: ReviewRating
+  comment?: string
+  deleted: boolean
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}

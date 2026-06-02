@@ -1,11 +1,17 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
-import { subscribeToMyOrderReview, submitReview, useAuth } from '@marketplace/shared-services'
-import type { Order, OrderStatus, Review, ReviewRating } from '@marketplace/shared-types'
+import {
+  subscribeToMyOrderDriverReview,
+  subscribeToMyOrderReview,
+  submitDriverReview,
+  submitReview,
+  useAuth,
+} from '@marketplace/shared-services'
+import type { DriverReview, Order, OrderStatus, Review, ReviewRating } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { arrayUnion, doc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
+import { arrayUnion, doc, getDoc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -69,11 +75,35 @@ export default function PedidoPage() {
   const [reviewError, setReviewError] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
 
+  const [myDriverReview, setMyDriverReview] = useState<DriverReview | null | undefined>(undefined)
+  const [driverReviewRating, setDriverReviewRating] = useState<ReviewRating | 0>(0)
+  const [driverReviewComment, setDriverReviewComment] = useState('')
+  const [submittingDriverReview, setSubmittingDriverReview] = useState(false)
+  const [driverReviewError, setDriverReviewError] = useState<string | null>(null)
+  const [driverReviewDone, setDriverReviewDone] = useState(false)
+  const [driverName, setDriverName] = useState<string>('Entregador')
+
   useEffect(() => {
     if (!orderId || !user) return
     const unsub = subscribeToMyOrderReview(orderId, user.uid, (r) => setMyReview(r))
     return unsub
   }, [orderId, user])
+
+  useEffect(() => {
+    if (!orderId || !user) return
+    const unsub = subscribeToMyOrderDriverReview(orderId, user.uid, (r) => setMyDriverReview(r))
+    return unsub
+  }, [orderId, user])
+
+  useEffect(() => {
+    const driverId = order?.deliveryDriverId
+    if (!driverId) return
+    getDoc(doc(firestore, 'deliveryDrivers', driverId)).then((snap) => {
+      if (snap.exists()) {
+        setDriverName((snap.data()?.['displayName'] as string | undefined) ?? 'Entregador')
+      }
+    })
+  }, [order?.deliveryDriverId])
 
   useEffect(() => {
     if (!orderId || authLoading) return
@@ -192,6 +222,28 @@ export default function PedidoPage() {
       setReviewError('Não foi possível enviar a avaliação. Tente novamente.')
     } finally {
       setSubmittingReview(false)
+    }
+  }
+
+  async function handleSubmitDriverReview() {
+    if (!order || !user || driverReviewRating === 0 || !order.deliveryDriverId) return
+    setSubmittingDriverReview(true)
+    setDriverReviewError(null)
+    try {
+      await submitDriverReview({
+        authorUid: user.uid,
+        authorName: user.displayName ?? 'Anônimo',
+        driverUid: order.deliveryDriverId,
+        driverName,
+        orderId: order.id,
+        rating: driverReviewRating as ReviewRating,
+        comment: driverReviewComment.trim() || undefined,
+      })
+      setDriverReviewDone(true)
+    } catch {
+      setDriverReviewError('Não foi possível enviar a avaliação. Tente novamente.')
+    } finally {
+      setSubmittingDriverReview(false)
     }
   }
 
@@ -566,6 +618,75 @@ export default function PedidoPage() {
                 className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submittingReview ? 'Enviando…' : 'Enviar avaliação'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Avaliação do entregador — só aparece após entrega e se houve entregador */}
+      {order.status === 'delivered' && order.deliveryDriverId && (
+        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-bold text-neutral-900">Avalie o entregador</h2>
+          <p className="mb-4 text-xs text-neutral-400">{driverName}</p>
+
+          {myDriverReview !== undefined && myDriverReview !== null ? (
+            <div>
+              <div className="mb-2 flex gap-0.5">
+                {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
+                  <span key={s} className={s <= myDriverReview.rating ? 'text-xl text-amber-400' : 'text-xl text-neutral-200'}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              {myDriverReview.comment && (
+                <p className="text-sm text-neutral-600">{myDriverReview.comment}</p>
+              )}
+              <p className="mt-2 text-xs text-neutral-400">Avaliação enviada</p>
+            </div>
+          ) : driverReviewDone ? (
+            <p className="text-sm font-medium text-emerald-600">Obrigado pela sua avaliação!</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-1">
+                {([1, 2, 3, 4, 5] as ReviewRating[]).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setDriverReviewRating(s)}
+                    className={[
+                      'text-3xl transition-colors',
+                      s <= driverReviewRating ? 'text-amber-400' : 'text-neutral-200 hover:text-amber-200',
+                    ].join(' ')}
+                    aria-label={`${s} estrela${s > 1 ? 's' : ''}`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <textarea
+                  value={driverReviewComment}
+                  onChange={(e) => setDriverReviewComment(e.target.value)}
+                  placeholder="Como foi a entrega? (opcional)"
+                  rows={3}
+                  maxLength={500}
+                  className="w-full resize-none rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+                <p className="mt-0.5 text-right text-xs text-neutral-400">{driverReviewComment.length}/500</p>
+              </div>
+
+              {driverReviewError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{driverReviewError}</p>
+              )}
+
+              <button
+                onClick={handleSubmitDriverReview}
+                disabled={driverReviewRating === 0 || submittingDriverReview}
+                className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submittingDriverReview ? 'Enviando…' : 'Enviar avaliação'}
               </button>
             </div>
           )}
