@@ -95,10 +95,15 @@ export default function PedidoPage() {
   }, [orderId, user])
 
   useEffect(() => {
-    if (!order) return
+    if (!order || !user) return
     if (order.hortaId) {
+      // customerId no where é obrigatório para satisfazer a security rule de query
       getDocs(
-        query(collection(firestore, 'pedidos_filhos'), where('pedidoPaiId', '==', order.id)),
+        query(
+          collection(firestore, 'pedidos_filhos'),
+          where('pedidoPaiId', '==', order.id),
+          where('customerId', '==', user.uid),
+        ),
       ).then((snap) => {
         const seen = new Set<string>()
         const prods: Array<{ id: string; name: string }> = []
@@ -109,12 +114,14 @@ export default function PedidoPage() {
             prods.push({ id: pid, name: d.data()['produtorName'] as string })
           }
         })
-        setOrderProdutores(prods)
+        setOrderProdutores(prods.length > 0 ? prods : [{ id: order.produtorId, name: order.produtorName }])
+      }).catch(() => {
+        setOrderProdutores([{ id: order.produtorId, name: order.produtorName }])
       })
     } else {
       setOrderProdutores([{ id: order.produtorId, name: order.produtorName }])
     }
-  }, [order?.id, order?.hortaId, order?.produtorId, order?.produtorName])
+  }, [order?.id, order?.hortaId, order?.produtorId, order?.produtorName, user?.uid])
 
   useEffect(() => {
     if (!orderId || !user) return
