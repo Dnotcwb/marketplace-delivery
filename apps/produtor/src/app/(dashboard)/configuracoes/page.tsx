@@ -74,7 +74,7 @@ export default function ConfiguracoesPage() {
   if (!produtor) {
     return (
       <div className="p-10 text-center text-sm text-neutral-500">
-        Nenhuma horta encontrada.
+        Nenhum produtor encontrado.
       </div>
     )
   }

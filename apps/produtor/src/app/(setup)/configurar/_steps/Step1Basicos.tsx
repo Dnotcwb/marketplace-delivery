@@ -38,7 +38,7 @@ export default function Step1Basicos({ initialData, onNext }: Props) {
   return (
     <form onSubmit={handleSubmit((d) => onNext(d as Step1Data))} className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-neutral-900">Dados da sua horta</h2>
+        <h2 className="text-xl font-bold text-neutral-900">Dados do produtor</h2>
         <p className="mt-1 text-sm text-neutral-500">
           Como os consumidores vão te encontrar no Brota.
         </p>
@@ -46,7 +46,7 @@ export default function Step1Basicos({ initialData, onNext }: Props) {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-neutral-700">
-          Nome da horta <span className="text-error">*</span>
+          Nome do produtor <span className="text-error">*</span>
         </label>
         <input
           {...register('name')}
@@ -89,7 +89,7 @@ export default function Step1Basicos({ initialData, onNext }: Props) {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-neutral-700">
-          Descrição da horta <span className="text-error">*</span>
+          Descrição do produtor <span className="text-error">*</span>
         </label>
         <textarea
           {...register('description')}

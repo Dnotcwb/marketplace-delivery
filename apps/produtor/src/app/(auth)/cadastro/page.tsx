@@ -56,7 +56,7 @@ export default function CadastroPage() {
         <div className="mb-4 flex justify-center">
           <img src="/logo.png" alt="Brota" className="h-16 w-auto" />
         </div>
-        <h1 className="text-2xl font-bold text-neutral-900">Cadastrar horta</h1>
+        <h1 className="text-2xl font-bold text-neutral-900">Cadastrar produtor</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Já tem conta?{' '}
           <Link href="/login" className="font-medium text-brand-500 hover:underline">
@@ -125,7 +125,7 @@ export default function CadastroPage() {
           disabled={loading}
           className="flex w-full items-center justify-center rounded-lg bg-brand-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
         >
-          {loading ? 'Criando conta…' : 'Criar conta e configurar horta'}
+          {loading ? 'Criando conta…' : 'Criar conta e configurar produtor'}
         </button>
       </form>
 

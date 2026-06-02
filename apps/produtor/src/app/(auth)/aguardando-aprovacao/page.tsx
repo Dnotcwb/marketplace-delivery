@@ -20,7 +20,7 @@ export default function AguardandoAprovacaoPage() {
         Cadastro em análise
       </h1>
       <p className="mb-6 text-neutral-500">
-        Recebemos seu cadastro e estamos analisando as informações da sua horta.
+        Recebemos seu cadastro e estamos analisando as suas informações.
         Você receberá um e-mail assim que a aprovação for concluída.
       </p>
 

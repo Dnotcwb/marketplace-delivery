@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: 'Painel do Produtor — Brota',
     template: '%s | Brota Produtor',
   },
-  description: 'Gerencie sua horta, produtos e pedidos em tempo real.',
+  description: 'Gerencie seus produtos e pedidos em tempo real.',
 }
 
 export default function RootLayout({

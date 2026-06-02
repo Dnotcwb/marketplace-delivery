@@ -35,7 +35,7 @@ export default function Step5Fotos({ onNext, onBack, submitting }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-neutral-900">Fotos da sua horta</h2>
+        <h2 className="text-xl font-bold text-neutral-900">Fotos do produtor</h2>
         <p className="mt-1 text-sm text-neutral-500">
           Uma boa foto atrai muito mais clientes. Você pode atualizar depois.
         </p>

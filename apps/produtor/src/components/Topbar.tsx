@@ -63,7 +63,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                 : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200',
             ].join(' ')}
-            aria-label={produtor.isOpen ? 'Fechar horta' : 'Abrir horta'}
+            aria-label={produtor.isOpen ? 'Fechar loja' : 'Abrir loja'}
           >
             <span
               className={[

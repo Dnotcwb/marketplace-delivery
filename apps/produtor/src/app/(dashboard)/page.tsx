@@ -98,9 +98,9 @@ export default function DashboardPage() {
       <div className="flex flex-1 items-center justify-center px-4 py-20">
         <div className="max-w-md text-center">
           <div className="mb-4 text-5xl">🌱</div>
-          <h1 className="mb-2 text-2xl font-bold text-neutral-900">Configure sua horta</h1>
+          <h1 className="mb-2 text-2xl font-bold text-neutral-900">Configure seu produtor</h1>
           <p className="mb-6 text-neutral-500">
-            Complete o cadastro da sua horta para começar a receber pedidos na plataforma.
+            Complete o seu cadastro de produtor para começar a receber pedidos na plataforma.
           </p>
           <Link
             href="/configurar"
@@ -120,7 +120,7 @@ export default function DashboardPage() {
           <div className="mb-4 text-5xl">⏳</div>
           <h1 className="mb-2 text-2xl font-bold text-neutral-900">Aguardando aprovação</h1>
           <p className="text-neutral-500">
-            Seu cadastro está em análise. Você será notificado por e-mail quando sua horta for aprovada.
+            Seu cadastro está em análise. Você será notificado por e-mail quando seu cadastro for aprovado.
           </p>
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             Prazo médio de análise: até 2 dias úteis.

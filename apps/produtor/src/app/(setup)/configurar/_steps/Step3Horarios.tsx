@@ -41,7 +41,7 @@ export default function Step3Horarios({ initialData, onNext, onBack }: Props) {
       <div>
         <h2 className="text-xl font-bold text-neutral-900">Horários de disponibilidade</h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Quando sua horta aceita pedidos? Você pode ajustar a qualquer momento.
+          Quando você aceita pedidos? Você pode ajustar a qualquer momento.
         </p>
       </div>
 
