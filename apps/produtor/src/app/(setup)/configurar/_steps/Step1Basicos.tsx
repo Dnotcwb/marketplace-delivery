@@ -40,7 +40,7 @@ export default function Step1Basicos({ initialData, onNext }: Props) {
       <div>
         <h2 className="text-xl font-bold text-neutral-900">Dados da sua horta</h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Como os consumidores vão te encontrar no Ambiente Livre.
+          Como os consumidores vão te encontrar no Brota.
         </p>
       </div>
 

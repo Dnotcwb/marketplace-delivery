@@ -86,7 +86,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         {/* Logo + botão fechar (mobile) */}
         <div className="flex h-16 items-center justify-between border-b border-brand-900/50 px-5">
-          <Link href="/" onClick={onClose} aria-label="Ambiente Livre — início">
+          <Link href="/" onClick={onClose} aria-label="Brota — início">
             <Logo variant="full" size={32} dark />
           </Link>
           <button
@@ -132,7 +132,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Versão */}
         <div className="border-t border-brand-900/50 px-5 py-4">
-          <span className="text-xs text-brand-500">Ambiente Livre · Produtor</span>
+          <span className="text-xs text-brand-500">Brota · Produtor</span>
         </div>
       </aside>
     </>

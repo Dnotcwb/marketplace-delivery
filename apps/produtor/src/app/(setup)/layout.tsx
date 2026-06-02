@@ -3,7 +3,7 @@ import Logo from '@/components/Logo'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Configurar minha horta — Ambiente Livre',
+  title: 'Configurar minha horta — Brota',
 }
 
 export default function SetupLayout({ children }: { children: React.ReactNode }) {

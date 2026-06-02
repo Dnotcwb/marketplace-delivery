@@ -16,7 +16,7 @@ export default function Logo({ variant = 'full', size = 36, className = '', dark
     <div className={`flex items-center gap-2.5 ${className}`}>
       <Image
         src="/logo.png"
-        alt="Ambiente Livre"
+        alt="Brota"
         width={size}
         height={Math.round(size * 1.22)}
         className="w-auto object-contain"
@@ -26,10 +26,10 @@ export default function Logo({ variant = 'full', size = 36, className = '', dark
       {variant === 'full' && (
         <div className="flex flex-col leading-none">
           <span className={`text-sm font-bold tracking-tight ${dark ? 'text-white' : 'text-neutral-900'}`}>
-            Ambiente
+            Bro
           </span>
           <span className="text-sm font-bold tracking-tight text-brand-500">
-            Livre
+            ta
           </span>
         </div>
       )}

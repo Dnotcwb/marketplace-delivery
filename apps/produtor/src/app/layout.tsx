@@ -12,8 +12,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Painel do Produtor — Ambiente Livre',
-    template: '%s | Ambiente Livre Produtor',
+    default: 'Painel do Produtor — Brota',
+    template: '%s | Brota Produtor',
   },
   description: 'Gerencie sua horta, produtos e pedidos em tempo real.',
 }

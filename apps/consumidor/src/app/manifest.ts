@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Ambiente Livre',
-    short_name: 'Ambiente Livre',
+    name: 'Brota',
+    short_name: 'Brota',
     description: 'Compre direto de produtores e hortas urbanas da sua região com entrega rápida.',
     start_url: '/',
     display: 'standalone',

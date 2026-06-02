@@ -43,7 +43,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-neutral-100 pt-6 text-xs text-neutral-400 sm:flex-row">
-          <span>© {year} Ambiente Livre. Todos os direitos reservados.</span>
+          <span>© {year} Brota. Todos os direitos reservados.</span>
           <span>Feito com cuidado para conectar sabores</span>
         </div>
       </div>

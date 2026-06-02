@@ -20,7 +20,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification ?? {};
-  self.registration.showNotification(title ?? 'Ambiente Livre', {
+  self.registration.showNotification(title ?? 'Brota', {
     body,
     icon: '/logo.png',
     badge: '/logo.png',

@@ -51,7 +51,7 @@ export default function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
 
         {/* Logo — ícone no mobile, completo no sm+ */}
-        <Link href="/" className="shrink-0" aria-label="Ambiente Livre — início">
+        <Link href="/" className="shrink-0" aria-label="Brota — início">
           <span className="sm:hidden">
             <Logo variant="mark" size={32} />
           </span>

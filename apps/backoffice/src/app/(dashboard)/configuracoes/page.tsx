@@ -41,7 +41,7 @@ export default function ConfiguracoesAdminPage() {
             platformCommissionPct: d['platformCommissionPct'] ?? 10,
             minDeliveryFeeInCents: (d['minDeliveryFeeInCents'] ?? 0) / 100,
             maxDeliveryFeeInCents: (d['maxDeliveryFeeInCents'] ?? 2000) / 100,
-            platformName: d['platformName'] ?? 'Ambiente Livre',
+            platformName: d['platformName'] ?? 'Brota',
             supportEmail: d['supportEmail'] ?? '',
             supportPhone: d['supportPhone'] ?? '',
           })
@@ -50,7 +50,7 @@ export default function ConfiguracoesAdminPage() {
             platformCommissionPct: 10,
             minDeliveryFeeInCents: 0,
             maxDeliveryFeeInCents: 20,
-            platformName: 'Ambiente Livre',
+            platformName: 'Brota',
             supportEmail: '',
             supportPhone: '',
           })
@@ -92,7 +92,7 @@ export default function ConfiguracoesAdminPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Configurações da plataforma</h1>
-        <p className="mt-0.5 text-sm text-neutral-500">Parâmetros globais do Ambiente Livre.</p>
+        <p className="mt-0.5 text-sm text-neutral-500">Parâmetros globais do Brota.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
