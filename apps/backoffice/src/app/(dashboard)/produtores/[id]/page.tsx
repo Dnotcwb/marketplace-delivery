@@ -4,6 +4,7 @@ import {
   callRemoveProducerMpToken,
   callSetProducerMpToken,
   callSetUserRole,
+  deleteProdutor,
   getProdutorById,
   setProdutorStatus,
   toggleProdutorOpen,
@@ -57,6 +58,7 @@ export default function ProdutorDetailPage() {
   const [acting, setActing] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [commissionInput, setCommissionInput] = useState('')
   const [savingCommission, setSavingCommission] = useState(false)
@@ -195,6 +197,18 @@ export default function ProdutorDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    setActing(true)
+    setError(null)
+    try {
+      await deleteProdutor(produtor.id)
+      router.push('/produtores')
+    } catch {
+      setError('Erro ao deletar. Tente novamente.')
+      setActing(false)
+    }
+  }
+
   async function handleSuspend() {
     if (!produtor) return
     setActing(true)
@@ -216,6 +230,44 @@ export default function ProdutorDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modal de exclusão */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h2 className="mb-1 text-lg font-bold text-neutral-900">Deletar produtor</h2>
+            <p className="mb-1 text-sm text-neutral-600">
+              Tem certeza que deseja deletar <span className="font-semibold text-neutral-900">{produtor.name}</span>?
+            </p>
+            <p className="mb-6 text-sm text-red-600">
+              Esta ação é irreversível. O documento será removido permanentemente do Firestore.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={acting}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={acting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {acting ? 'Deletando…' : 'Sim, deletar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cabeçalho */}
       <div className="flex items-center gap-3">
         <Link
@@ -446,6 +498,19 @@ export default function ProdutorDetailPage() {
             {acting ? 'Processando…' : 'Aprovar e reativar'}
           </button>
         )}
+
+        {/* Deletar */}
+        <div className="mt-5 border-t border-red-100 pt-5">
+          <p className="mb-2 text-sm font-semibold text-red-700">Zona de perigo</p>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            disabled={acting}
+            className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+          >
+            Deletar produtor permanentemente
+          </button>
+          <p className="mt-1 text-xs text-neutral-400">Esta ação não pode ser desfeita.</p>
+        </div>
 
         {/* Comissão */}
         <div className="mt-5 border-t border-neutral-100 pt-5">

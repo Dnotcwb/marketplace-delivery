@@ -2,6 +2,7 @@
 
 import {
   callSetUserRole,
+  deleteProdutor,
   setProdutorStatus,
   subscribeToAllProdutores,
 } from '@marketplace/shared-services'
@@ -25,6 +26,61 @@ const STATUS_BADGE: Record<ProdutorStatus, { label: string; cls: string }> = {
   approved:  { label: 'Aprovado',  cls: 'bg-emerald-100 text-emerald-700' },
   rejected:  { label: 'Rejeitado', cls: 'bg-red-100 text-red-700' },
   suspended: { label: 'Suspenso',  cls: 'bg-neutral-200 text-neutral-600' },
+}
+
+// ── Modal de exclusão ─────────────────────────────────────────────────────────
+
+interface DeleteModalProps {
+  produtor: Produtor
+  onConfirm: () => Promise<void>
+  onClose: () => void
+}
+
+function DeleteModal({ produtor, onConfirm, onClose }: DeleteModalProps) {
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleConfirm() {
+    setDeleting(true)
+    await onConfirm()
+    setDeleting(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+          <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <h2 className="mb-1 text-lg font-bold text-neutral-900">Deletar produtor</h2>
+        <p className="mb-1 text-sm text-neutral-600">
+          Tem certeza que deseja deletar <span className="font-semibold text-neutral-900">{produtor.name}</span>?
+        </p>
+        <p className="mb-6 text-sm text-red-600">
+          Esta ação é irreversível. O documento será removido permanentemente do Firestore.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={deleting}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {deleting ? 'Deletando…' : 'Sim, deletar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Modal de rejeição ─────────────────────────────────────────────────────────
@@ -104,6 +160,7 @@ export default function ProdutoresAdminPage() {
   const [loading, setLoading] = useState(true)
   const [actionId, setActionId] = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<Produtor | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Produtor | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -167,6 +224,19 @@ export default function ProdutoresAdminPage() {
     }
   }
 
+  async function handleDelete(produtor: Produtor) {
+    setActionId(produtor.id)
+    setError(null)
+    try {
+      await deleteProdutor(produtor.id)
+      setDeleteTarget(null)
+    } catch {
+      setError(`Erro ao deletar ${produtor.name}. Tente novamente.`)
+    } finally {
+      setActionId(null)
+    }
+  }
+
   async function handleReactivate(produtor: Produtor) {
     if (!user) return
     setActionId(produtor.id)
@@ -202,6 +272,13 @@ export default function ProdutoresAdminPage() {
           produtor={rejectTarget}
           onConfirm={(reason) => handleReject(rejectTarget, reason)}
           onClose={() => setRejectTarget(null)}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteModal
+          produtor={deleteTarget}
+          onConfirm={() => handleDelete(deleteTarget)}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
 
@@ -347,6 +424,17 @@ export default function ProdutoresAdminPage() {
                         {isActing ? '…' : 'Reativar'}
                       </button>
                     )}
+
+                    <button
+                      onClick={() => setDeleteTarget(produtor)}
+                      disabled={isActing}
+                      title="Deletar produtor"
+                      className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               )

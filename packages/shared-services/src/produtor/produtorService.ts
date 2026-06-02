@@ -2,6 +2,7 @@ import { firestore } from '@marketplace/shared-firebase'
 import type { Produtor, ProdutorStatus } from '@marketplace/shared-types'
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -139,6 +140,11 @@ export async function toggleProdutorOpen(id: string, isOpen: boolean): Promise<v
 // ──────────────────────────────────────────────────────
 //  Aprovação (backoffice / Cloud Functions)
 // ──────────────────────────────────────────────────────
+
+/** Deleta permanentemente o produtor (apenas admin). */
+export async function deleteProdutor(id: string): Promise<void> {
+  await deleteDoc(doc(firestore, COL, id))
+}
 
 export async function setProdutorStatus(
   id: string,

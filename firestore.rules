@@ -95,7 +95,7 @@ service cloud.firestore {
                        && isUnchanged('approvedAt'))
                     || isAdmin();
 
-      allow delete: if false;
+      allow delete: if isAdmin();
 
       match /categories/{categoryId} {
         allow read: if true;
