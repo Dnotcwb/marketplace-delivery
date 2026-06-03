@@ -198,6 +198,7 @@ export default function ProdutorDetailPage() {
   }
 
   async function handleDelete() {
+    if (!produtor) return
     setActing(true)
     setError(null)
     try {
