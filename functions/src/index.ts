@@ -4,6 +4,7 @@ admin.initializeApp()
 
 export { onUserCreated } from './auth/onUserCreated'
 export { setUserRole } from './auth/setUserRole'
+export { cleanupGhostProdutores } from './auth/cleanupGhostProdutores'
 export { createOrder } from './orders/createOrder'
 export { mercadoPagoWebhook } from './webhooks/mercadoPagoWebhook'
 export { onOrderStatusChanged } from './orders/onOrderStatusChanged'

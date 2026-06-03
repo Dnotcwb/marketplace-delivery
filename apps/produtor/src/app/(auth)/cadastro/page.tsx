@@ -33,6 +33,8 @@ export default function CadastroPage() {
         name,
         phoneVerified: false,
         role: 'cliente',
+        registrationSource: 'produtor',
+        registrationStatus: 'wizard_pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })

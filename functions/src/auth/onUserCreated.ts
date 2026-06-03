@@ -8,6 +8,8 @@ export const onUserCreated = functionsV1
   .onCreate(async (user) => {
   const { uid, email, displayName, photoURL } = user
 
+  // merge:true evita sobrescrever campos customizados gravados pelo cliente
+  // antes do trigger disparar (ex: registrationSource, registrationStatus)
   await admin.firestore().collection('users').doc(uid).set({
     uid,
     email: email ?? '',
@@ -18,5 +20,5 @@ export const onUserCreated = functionsV1
     role: 'cliente',
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }, { merge: true })
 })

@@ -7,7 +7,7 @@ import type {
   ProdutorHours,
 } from '@marketplace/shared-types'
 import { slugify } from '@marketplace/shared-utils'
-import { collection, doc } from 'firebase/firestore'
+import { collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -126,6 +126,12 @@ export default function ConfigurarPage() {
         status: 'pending',
         commission: 0,
       })
+
+      // Marca o cadastro como concluído — impede exclusão automática de "fantasmas"
+      await updateDoc(doc(firestore, 'users', user.uid), {
+        registrationStatus: 'completed',
+        updatedAt: serverTimestamp(),
+      }).catch(() => { /* não bloqueia o fluxo se falhar */ })
 
       router.push('/aguardando-aprovacao')
     } catch (err) {
