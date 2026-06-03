@@ -25,6 +25,22 @@ interface CleanupResult {
   totalDeleted: number
 }
 
+// ── selfRevokeOrphanedClaim ────────────────────────────
+
+const selfRevokeOrphanedClaimFn = httpsCallable<void, { revoked: boolean; reason?: string }>(
+  functions,
+  'selfRevokeOrphanedClaim',
+)
+
+/** Revoga o claim role='produtor' quando não existe documento em `produtores`.
+ *  Seguro: só executa se o estado for realmente inválido. */
+export async function callSelfRevokeOrphanedClaim(): Promise<{ revoked: boolean }> {
+  const result = await selfRevokeOrphanedClaimFn()
+  return result.data
+}
+
+// ── cleanupGhostProdutores ──────────────────────────────
+
 const cleanupGhostProdutoresFn = httpsCallable<CleanupData, CleanupResult>(
   functions,
   'cleanupGhostProdutores',

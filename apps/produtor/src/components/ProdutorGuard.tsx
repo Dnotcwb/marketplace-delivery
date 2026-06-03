@@ -1,7 +1,8 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
-import { useAuth } from '@marketplace/shared-services'
+import { auth, firestore } from '@marketplace/shared-firebase'
+import { callSelfRevokeOrphanedClaim, useAuth } from '@marketplace/shared-services'
+import { signOut } from 'firebase/auth'
 import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -9,9 +10,10 @@ import { useEffect, useState } from 'react'
 type GuardState =
   | 'checking'
   | 'ready'
-  | 'activating'       // aprovado mas claim ainda não propagou
-  | 'go_configurar'    // sem produtores doc → wizard
-  | 'go_aguardando'    // cadastro pendente/rejeitado
+  | 'activating'      // aprovado no Firestore mas claim ainda não propagou
+  | 'revoked'         // claim='produtor' mas sem doc → conta removida
+  | 'go_configurar'
+  | 'go_aguardando'
   | 'go_login'
   | 'go_negado'
   | 'error'
@@ -28,30 +30,23 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
     async function check() {
       setState('checking')
 
-      // 1. Força refresh do token apenas se ainda não tiver o role correto
+      // 1. Força refresh do token antes de qualquer decisão
       let role: string | undefined = claims?.role
-      if (role !== 'produtor') {
-        try {
-          const fresh = await user!.getIdTokenResult(true)
-          role = fresh.claims['role'] as string | undefined
-        } catch {
-          // Se o refresh falhar usa o claim já carregado
-        }
+      try {
+        const fresh = await user!.getIdTokenResult(true)
+        role = fresh.claims['role'] as string | undefined
+      } catch {
+        // Se o refresh falhar usa o claim já carregado
       }
 
-      // 2. Token já tem o role correto → entra no dashboard
-      if (role === 'produtor') {
-        setState('ready')
-        return
-      }
-
-      // 3. Outro role que não pertence a este app
-      if (role && role !== 'cliente') {
+      // 2. Outro role que não pertence a este app
+      if (role && role !== 'produtor' && role !== 'cliente') {
         setState('go_negado')
         return
       }
 
-      // 4. Role = 'cliente' ou ausente → consulta o Firestore para saber o estado do cadastro
+      // 3. Verifica existência do documento em `produtores` INDEPENDENTE do role
+      //    Garante que claims não fiquem "soltas" após deleção do produtor
       try {
         const snap = await getDocs(
           query(
@@ -62,19 +57,32 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
         )
 
         if (snap.empty) {
-          // Nunca completou o wizard → vai configurar
-          setState('go_configurar')
+          if (role === 'produtor') {
+            // Claim diz 'produtor' mas o documento foi deletado → estado corrompido
+            // Auto-corrige o claim para evitar acesso indevido em sessões futuras
+            await callSelfRevokeOrphanedClaim().catch(() => {})
+            await signOut(auth)
+            setState('revoked')
+          } else {
+            // Sem doc e sem claim → ainda não completou o wizard
+            setState('go_configurar')
+          }
           return
         }
 
         const produtorStatus = snap.docs[0]!.data().status as string | undefined
 
+        if (role === 'produtor') {
+          // Tem doc e tem claim correto → entra
+          setState('ready')
+          return
+        }
+
+        // Tem doc mas o claim ainda não foi atualizado
         if (produtorStatus === 'approved') {
-          // Admin aprovou mas o custom claim ainda não propagou no token
-          setState('activating')
+          setState('activating') // Admin aprovou mas token ainda não propagou
         } else {
-          // pending, rejected, suspended → tela de aguardo
-          setState('go_aguardando')
+          setState('go_aguardando') // pending, rejected, suspended
         }
       } catch (err) {
         console.error('ProdutorGuard Firestore error:', err)
@@ -83,9 +91,8 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
     }
 
     check()
-  }, [user, loading, claimsLoading]) // eslint-disable-line react-hooks/exhaustive-deps — claims omitido intencionalmente; claimsLoading garante que o token foi lido antes de decidir
+  }, [user, loading, claimsLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Navegação fora do render
   useEffect(() => {
     if (state === 'go_login')      router.replace('/login')
     if (state === 'go_configurar') router.replace('/configurar')
@@ -116,6 +123,24 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
     )
   }
 
+  if (state === 'revoked') {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-neutral-50 px-4 text-center">
+        <div className="text-5xl">🚫</div>
+        <p className="text-xl font-bold text-neutral-900">Conta removida</p>
+        <p className="mt-1 text-sm text-neutral-500 max-w-xs">
+          Esta conta de produtor foi removida da plataforma. Entre em contato com o suporte ou cadastre-se novamente.
+        </p>
+        <button
+          onClick={() => router.replace('/login')}
+          className="rounded-lg bg-brand-500 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-600"
+        >
+          Voltar ao login
+        </button>
+      </div>
+    )
+  }
+
   if (state === 'error') {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-neutral-50 px-4 text-center">
@@ -131,7 +156,6 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
     )
   }
 
-  // Checking / redirect em andamento
   return (
     <div className="flex h-screen items-center justify-center bg-neutral-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />

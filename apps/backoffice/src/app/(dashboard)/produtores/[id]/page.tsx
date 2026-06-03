@@ -203,6 +203,8 @@ export default function ProdutorDetailPage() {
     setError(null)
     try {
       await deleteProdutor(produtor.id)
+      // Revoga o custom claim para impedir acesso ao app produtor após deleção
+      await callSetUserRole({ uid: produtor.ownerUid, role: 'cliente' }).catch(() => {})
       router.push('/produtores')
     } catch {
       setError('Erro ao deletar. Tente novamente.')
