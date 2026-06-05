@@ -4,8 +4,9 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 interface SetRoleData {
   uid: string
-  role: 'cliente' | 'produtor' | 'admin' | 'entregador'
+  role: 'cliente' | 'produtor' | 'admin' | 'entregador' | 'horta'
   produtorIds?: string[]
+  hortaId?: string
   approved?: boolean
 }
 
@@ -16,7 +17,7 @@ export const setUserRole = onCall<SetRoleData>(
       throw new HttpsError('permission-denied', 'Apenas administradores podem alterar roles.')
     }
 
-    const { uid, role, produtorIds, approved } = request.data
+    const { uid, role, produtorIds, hortaId, approved } = request.data
 
     if (!uid || !role) {
       throw new HttpsError('invalid-argument', 'uid e role são obrigatórios.')
@@ -24,15 +25,24 @@ export const setUserRole = onCall<SetRoleData>(
 
     const claims: Record<string, unknown> = { role }
     if (produtorIds !== undefined) claims['produtorIds'] = produtorIds
+    if (hortaId !== undefined) claims['hortaId'] = hortaId
     if (approved !== undefined) claims['approved'] = approved
 
     await admin.auth().setCustomUserClaims(uid, claims)
 
-    await admin.firestore().collection('users').doc(uid).update({
+    const userUpdate: Record<string, unknown> = {
       role,
-      ...(approved !== undefined && { approved }),
       updatedAt: FieldValue.serverTimestamp(),
-    })
+    }
+    if (approved !== undefined) userUpdate['approved'] = approved
+    if (hortaId !== undefined) {
+      userUpdate['hortaId'] = hortaId
+    } else if (role !== 'horta') {
+      // Limpa hortaId ao mudar para outro role
+      userUpdate['hortaId'] = FieldValue.delete()
+    }
+
+    await admin.firestore().collection('users').doc(uid).update(userUpdate)
 
     await admin.firestore().collection('auditLogs').add({
       adminUid: request.auth.uid,

@@ -23,6 +23,12 @@ export interface Horta {
   /** Coordenadas geográficas para cálculo de frete dinâmico */
   lat?: number
   lng?: number
+  /** UID do responsável pela gestão desta horta */
+  ownerUid?: string
+  /** Email do responsável (desnormalizado) */
+  ownerEmail?: string
+  /** Nome do responsável (desnormalizado) */
+  ownerName?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }

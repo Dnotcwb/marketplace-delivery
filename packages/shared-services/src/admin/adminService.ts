@@ -55,8 +55,9 @@ export async function callCleanupGhostProdutores(data: CleanupData): Promise<Cle
 
 interface SetRoleData {
   uid: string
-  role: 'cliente' | 'produtor' | 'admin' | 'entregador'
+  role: 'cliente' | 'produtor' | 'admin' | 'entregador' | 'horta'
   produtorIds?: string[]
+  hortaId?: string
   approved?: boolean
 }
 
@@ -68,6 +69,28 @@ const setUserRoleFn = httpsCallable<SetRoleData, { success: boolean }>(
 /** Chama a Cloud Function setUserRole para atualizar custom claims. */
 export async function callSetUserRole(data: SetRoleData): Promise<void> {
   await setUserRoleFn(data)
+}
+
+// ── assignHortaManager ──────────────────────────────────
+
+interface AssignHortaManagerResult {
+  uid: string
+  email: string
+  name: string
+}
+
+const assignHortaManagerFn = httpsCallable<
+  { email: string; hortaId: string },
+  AssignHortaManagerResult
+>(functions, 'assignHortaManager')
+
+/** Atribui um usuário existente (por email) como responsável de uma horta. */
+export async function callAssignHortaManager(
+  email: string,
+  hortaId: string,
+): Promise<AssignHortaManagerResult> {
+  const result = await assignHortaManagerFn({ email, hortaId })
+  return result.data
 }
 
 const setProducerMpTokenFn = httpsCallable<

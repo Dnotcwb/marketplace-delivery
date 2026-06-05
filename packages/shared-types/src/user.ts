@@ -1,6 +1,6 @@
 import type { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'cliente' | 'produtor' | 'admin' | 'entregador'
+export type UserRole = 'cliente' | 'produtor' | 'admin' | 'entregador' | 'horta'
 
 export interface User {
   uid: string
@@ -15,6 +15,8 @@ export interface User {
 
   role: UserRole
   produtorIds?: string[]
+  /** ID da horta que este usuário gerencia (quando role='horta') */
+  hortaId?: string
   approved?: boolean
   approvedAt?: Timestamp
   approvedBy?: string

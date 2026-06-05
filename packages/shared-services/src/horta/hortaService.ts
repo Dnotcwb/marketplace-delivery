@@ -3,6 +3,8 @@ import type { Horta } from '@marketplace/shared-types'
 import {
   addDoc,
   collection,
+  deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -64,6 +66,20 @@ export async function updateHorta(
 ): Promise<void> {
   await updateDoc(doc(firestore, COL, id), {
     ...data,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function deleteHorta(id: string): Promise<void> {
+  await deleteDoc(doc(firestore, COL, id))
+}
+
+/** Remove o vínculo de responsável de uma horta sem deletar o documento. */
+export async function removeHortaOwner(id: string): Promise<void> {
+  await updateDoc(doc(firestore, COL, id), {
+    ownerUid: deleteField(),
+    ownerEmail: deleteField(),
+    ownerName: deleteField(),
     updatedAt: serverTimestamp(),
   })
 }

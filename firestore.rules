@@ -28,6 +28,16 @@ service cloud.firestore {
       return isAuthenticated() && userRole() == 'entregador';
     }
 
+    function isHortaManager() {
+      return isAuthenticated() && userRole() == 'horta';
+    }
+
+    function isOwnerOfHorta(hortaId) {
+      return isHortaManager() &&
+             request.auth.token.hortaId != null &&
+             request.auth.token.hortaId == hortaId;
+    }
+
     // Verifica se o usuário autenticado é dono do perfil de produtor
     function isOwnerOfProdutor(produtorId) {
       return isProducer() &&
@@ -147,7 +157,9 @@ service cloud.firestore {
     // ==================== HORTAS ====================
     match /hortas/{hortaId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOwnerOfHorta(hortaId);
+      allow delete: if isAdmin();
     }
 
     // ==================== MP TOKENS ====================
