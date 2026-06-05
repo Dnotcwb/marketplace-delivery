@@ -28,6 +28,16 @@ export function subscribeToHortas(
   })
 }
 
+export function subscribeToHortaById(
+  id: string,
+  callback: (horta: Horta | null) => void,
+): Unsubscribe {
+  return onSnapshot(doc(firestore, COL, id), (snap) => {
+    if (!snap.exists()) callback(null)
+    else callback({ id: snap.id, ...snap.data() } as Horta)
+  })
+}
+
 export async function listHortasAtivas(): Promise<Horta[]> {
   const q = query(collection(firestore, COL), where('status', '==', 'active'))
   const snap = await getDocs(q)
