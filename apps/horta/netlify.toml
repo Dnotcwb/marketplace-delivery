@@ -1,5 +1,4 @@
 [build]
-  base    = "."
   command = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@marketplace/horta"
   publish = "apps/horta/.next"
 
