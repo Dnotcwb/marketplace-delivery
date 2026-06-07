@@ -77,10 +77,9 @@ interface AssignHortaManagerResult {
   uid: string
   email: string
   name: string
-  /** true = conta criada pelo sistema agora */
   userCreated: boolean
-  /** Link para o responsável definir a senha (presente quando userCreated=true) */
   passwordSetupLink?: string
+  linkError?: string
 }
 
 const assignHortaManagerFn = httpsCallable<

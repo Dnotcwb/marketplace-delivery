@@ -290,6 +290,8 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
       setSuccess(msg)
       if (result.passwordSetupLink) {
         setSetupLink(result.passwordSetupLink)
+      } else if (result.linkError) {
+        setError(`Responsável atribuído, mas não foi possível gerar o link de acesso: ${result.linkError}`)
       }
 
       setEmail('')
