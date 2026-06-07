@@ -1,15 +1,31 @@
 'use client'
 
+import { firestore } from '@marketplace/shared-firebase'
+import { doc, getDoc } from 'firebase/firestore'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { useHorta } from '@/components/HortaGuard'
 
 export default function DashboardPage() {
   const { horta } = useHorta()
+  const [produtoresCount, setProdutoresCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    const ids = horta.produtorIds
+    if (!ids.length) { setProdutoresCount(0); return }
+    Promise.allSettled(ids.map((id) => getDoc(doc(firestore, 'produtores', id))))
+      .then((results) => {
+        const count = results.filter(
+          (r) => r.status === 'fulfilled' && r.value.exists(),
+        ).length
+        setProdutoresCount(count)
+      })
+  }, [horta.produtorIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = [
     {
       label: 'Produtores vinculados',
-      value: horta.produtorIds.length,
+      value: produtoresCount ?? '…',
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -115,7 +131,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="font-semibold text-neutral-900">Ver produtores</p>
-            <p className="text-sm text-neutral-500">{horta.produtorIds.length} produtor(es) vinculado(s) a esta horta.</p>
+            <p className="text-sm text-neutral-500">{produtoresCount ?? '…'} produtor(es) vinculado(s) a esta horta.</p>
           </div>
         </Link>
       </div>
