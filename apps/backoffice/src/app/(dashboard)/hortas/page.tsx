@@ -1,6 +1,6 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
+import { auth, firestore } from '@marketplace/shared-firebase'
 import type { Horta, Produtor } from '@marketplace/shared-types'
 import {
   callAssignHortaManager,
@@ -11,6 +11,7 @@ import {
   subscribeToHortas,
   updateHorta,
 } from '@marketplace/shared-services'
+import { sendPasswordResetEmail } from 'firebase/auth'
 import {
   collection,
   doc,
@@ -263,6 +264,7 @@ interface ResponsavelModalProps {
 
 function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [error, setError] = useState('')
@@ -270,19 +272,38 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
 
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = email.trim().toLowerCase()
-    if (!trimmed) { setError('Informe o email do responsável'); return }
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedName = name.trim()
+    if (!trimmedEmail) { setError('Informe o email do responsável'); return }
     setSaving(true)
     setError('')
     setSuccess('')
     try {
-      const result = await callAssignHortaManager(trimmed, horta.id)
-      setSuccess(`${result.name} (${result.email}) atribuído como responsável.`)
+      const result = await callAssignHortaManager(trimmedEmail, horta.id, trimmedName || undefined)
+
+      // Se a conta foi criada agora, envia o email de definição de senha
+      if (result.userCreated) {
+        try {
+          await sendPasswordResetEmail(auth, trimmedEmail, {
+            url: 'https://marketplace-delivery-horta.netlify.app/login',
+          })
+          setSuccess(
+            `Conta criada para ${result.name}! Email de primeiro acesso enviado para ${result.email}. O responsável precisa verificar a caixa de entrada para definir a senha.`,
+          )
+        } catch {
+          setSuccess(
+            `Conta criada para ${result.name} (${result.email}). Não foi possível enviar o email automático — envie o link de acesso manualmente: marketplace-delivery-horta.netlify.app`,
+          )
+        }
+      } else {
+        setSuccess(`${result.name} (${result.email}) atribuído como responsável.`)
+      }
+
       setEmail('')
+      setName('')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao atribuir responsável.'
-      // Firebase Functions wraps the message inside details
       const detail = (err as { details?: string })?.details
+      const msg = err instanceof Error ? err.message : 'Erro ao atribuir responsável.'
       setError(detail ?? msg)
     } finally {
       setSaving(false)
@@ -304,6 +325,8 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
       setRemoving(false)
     }
   }
+
+  const inputCls = 'w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -345,28 +368,42 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
             </div>
           )}
 
-          {/* Atribuir novo responsável */}
+          {/* Atribuir / criar responsável */}
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              {horta.ownerUid ? 'Substituir responsável' : 'Atribuir responsável'}
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              {horta.ownerUid ? 'Substituir responsável' : 'Cadastrar responsável'}
             </p>
-            <p className="mb-3 text-xs text-neutral-500">
-              O usuário deve ter uma conta criada no sistema. Informe o email cadastrado.
+            <p className="mb-3 text-xs text-neutral-400">
+              Se o email não tiver conta no sistema, ela será criada automaticamente e um email de acesso será enviado.
             </p>
-            <form onSubmit={handleAssign} className="flex gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@exemplo.com"
-                className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              />
+            <form onSubmit={handleAssign} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-600">Nome completo</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: João da Silva"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-600">Email *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="responsavel@horta.com"
+                  required
+                  className={inputCls}
+                />
+              </div>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+                className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
               >
-                {saving ? '…' : 'Atribuir'}
+                {saving ? 'Processando…' : horta.ownerUid ? 'Substituir responsável' : 'Cadastrar responsável'}
               </button>
             </form>
           </div>

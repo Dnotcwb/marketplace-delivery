@@ -77,19 +77,26 @@ interface AssignHortaManagerResult {
   uid: string
   email: string
   name: string
+  /** true = conta criada pelo sistema agora */
+  userCreated: boolean
 }
 
 const assignHortaManagerFn = httpsCallable<
-  { email: string; hortaId: string },
+  { email: string; hortaId: string; name?: string },
   AssignHortaManagerResult
 >(functions, 'assignHortaManager')
 
-/** Atribui um usuário existente (por email) como responsável de uma horta. */
+/**
+ * Atribui (ou cria) um responsável de horta.
+ * Se o email não existir no sistema, a conta é criada automaticamente.
+ * Quando userCreated=true, o chamador deve enviar o email de redefinição de senha.
+ */
 export async function callAssignHortaManager(
   email: string,
   hortaId: string,
+  name?: string,
 ): Promise<AssignHortaManagerResult> {
-  const result = await assignHortaManagerFn({ email, hortaId })
+  const result = await assignHortaManagerFn({ email, hortaId, name })
   return result.data
 }
 
