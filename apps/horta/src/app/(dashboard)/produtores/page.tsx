@@ -2,7 +2,7 @@
 
 import { firestore } from '@marketplace/shared-firebase'
 import type { Produtor } from '@marketplace/shared-types'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { useHorta } from '@/components/HortaGuard'
 
@@ -26,16 +26,21 @@ export default function ProdutoresPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!horta.id) return
+    const ids = horta.produtorIds
+    if (!ids.length) {
+      setProdutores([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    getDocs(
-      query(collection(firestore, 'produtores'), where('hortaId', '==', horta.id)),
-    )
-      .then((snap) => {
-        setProdutores(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Produtor))
+    Promise.all(ids.map((id) => getDoc(doc(firestore, 'produtores', id))))
+      .then((snaps) => {
+        setProdutores(
+          snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }) as Produtor),
+        )
       })
       .finally(() => setLoading(false))
-  }, [horta.id, horta.produtorIds.length])
+  }, [horta.produtorIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">

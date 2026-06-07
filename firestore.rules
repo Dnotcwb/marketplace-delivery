@@ -91,6 +91,7 @@ service cloud.firestore {
       allow read: if resource.data.status == 'approved'
                   || isOwnerOfProdutor(produtorId)
                   || (isProducer() && resource.data.ownerUid == userId())
+                  || (isHortaManager() && resource.data.hortaId == request.auth.token.hortaId)
                   || isAdmin();
 
       // Qualquer usuário autenticado pode submeter um cadastro pendente.
