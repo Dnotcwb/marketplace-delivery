@@ -269,6 +269,8 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
   const [removing, setRemoving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [setupLink, setSetupLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault()
@@ -278,22 +280,14 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
     setSaving(true)
     setError('')
     setSuccess('')
+    setSetupLink(null)
     try {
       const result = await callAssignHortaManager(trimmedEmail, horta.id, trimmedName || undefined)
 
-      // Se a conta foi criada agora, envia o email de definição de senha
       if (result.userCreated) {
-        try {
-          await sendPasswordResetEmail(auth, trimmedEmail, {
-            url: 'https://marketplace-delivery-horta.netlify.app/login',
-          })
-          setSuccess(
-            `Conta criada para ${result.name}! Email de primeiro acesso enviado para ${result.email}. O responsável precisa verificar a caixa de entrada para definir a senha.`,
-          )
-        } catch {
-          setSuccess(
-            `Conta criada para ${result.name} (${result.email}). Não foi possível enviar o email automático — envie o link de acesso manualmente: marketplace-delivery-horta.netlify.app`,
-          )
+        setSuccess(`Conta criada para ${result.name} (${result.email}).`)
+        if (result.passwordSetupLink) {
+          setSetupLink(result.passwordSetupLink)
         }
       } else {
         setSuccess(`${result.name} (${result.email}) atribuído como responsável.`)
@@ -307,6 +301,17 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
       setError(detail ?? msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!setupLink) return
+    try {
+      await navigator.clipboard.writeText(setupLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // fallback: seleciona o texto do input
     }
   }
 
@@ -413,6 +418,33 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
           )}
           {success && (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{success}</p>
+          )}
+
+          {/* Link de primeiro acesso */}
+          {setupLink && (
+            <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 space-y-2">
+              <p className="text-xs font-semibold text-brand-700">
+                Link de primeiro acesso
+              </p>
+              <p className="text-xs text-brand-600">
+                Envie este link ao responsável pelo WhatsApp, Telegram ou outro canal. Ao clicar, ele define a senha e acessa o painel da horta.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={setupLink}
+                  className="flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs text-neutral-700 truncate focus:outline-none"
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="shrink-0 rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                >
+                  {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

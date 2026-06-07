@@ -15,6 +15,8 @@ interface AssignResult {
   name: string
   /** true = conta criada agora, false = conta já existia */
   userCreated: boolean
+  /** Link de definição de senha (gerado quando userCreated=true) */
+  passwordSetupLink?: string
 }
 
 export const assignHortaManager = onCall<AssignData>(
@@ -132,6 +134,19 @@ export const assignHortaManager = onCall<AssignData>(
       timestamp: FieldValue.serverTimestamp(),
     })
 
-    return { uid, email, name: userName, userCreated }
+    // Gera link de definição de senha para contas novas
+    let passwordSetupLink: string | undefined
+    if (userCreated) {
+      try {
+        passwordSetupLink = await admin.auth().generatePasswordResetLink(email, {
+          url: 'https://marketplace-delivery-horta.netlify.app/login',
+          handleCodeInApp: false,
+        })
+      } catch {
+        // Se falhar, segue sem o link — backoffice avisa o admin
+      }
+    }
+
+    return { uid, email, name: userName, userCreated, passwordSetupLink }
   },
 )
