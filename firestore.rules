@@ -87,11 +87,18 @@ service cloud.firestore {
     }
 
     // ==================== PRODUTORES (hortas) ====================
+    function hortaManagerPodeVerProdutor(produtorId) {
+      let hId = request.auth.token.hortaId;
+      return isHortaManager()
+          && hId is string
+          && produtorId in get(/databases/$(database)/documents/hortas/$(hId)).data.produtorIds;
+    }
+
     match /produtores/{produtorId} {
       allow read: if resource.data.status == 'approved'
                   || isOwnerOfProdutor(produtorId)
                   || (isProducer() && resource.data.ownerUid == userId())
-                  || (isHortaManager() && resource.data.hortaId == request.auth.token.hortaId)
+                  || hortaManagerPodeVerProdutor(produtorId)
                   || isAdmin();
 
       // Qualquer usuário autenticado pode submeter um cadastro pendente.

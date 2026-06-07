@@ -33,11 +33,16 @@ export default function ProdutoresPage() {
       return
     }
     setLoading(true)
-    Promise.all(ids.map((id) => getDoc(doc(firestore, 'produtores', id))))
-      .then((snaps) => {
-        setProdutores(
-          snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }) as Produtor),
-        )
+    // allSettled: falhas individuais (doc não existe ou sem permissão) não derrubam o fetch todo
+    Promise.allSettled(ids.map((id) => getDoc(doc(firestore, 'produtores', id))))
+      .then((results) => {
+        const found: Produtor[] = []
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value.exists()) {
+            found.push({ id: r.value.id, ...r.value.data() } as Produtor)
+          }
+        }
+        setProdutores(found)
       })
       .finally(() => setLoading(false))
   }, [horta.produtorIds]) // eslint-disable-line react-hooks/exhaustive-deps
