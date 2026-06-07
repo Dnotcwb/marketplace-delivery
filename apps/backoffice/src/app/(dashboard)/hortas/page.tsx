@@ -284,13 +284,12 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
     try {
       const result = await callAssignHortaManager(trimmedEmail, horta.id, trimmedName || undefined)
 
-      if (result.userCreated) {
-        setSuccess(`Conta criada para ${result.name} (${result.email}).`)
-        if (result.passwordSetupLink) {
-          setSetupLink(result.passwordSetupLink)
-        }
-      } else {
-        setSuccess(`${result.name} (${result.email}) atribuído como responsável.`)
+      const msg = result.userCreated
+        ? `Conta criada para ${result.name} (${result.email}).`
+        : `${result.name} (${result.email}) atribuído como responsável.`
+      setSuccess(msg)
+      if (result.passwordSetupLink) {
+        setSetupLink(result.passwordSetupLink)
       }
 
       setEmail('')
@@ -424,10 +423,10 @@ function ResponsavelModal({ horta, onClose }: ResponsavelModalProps) {
           {setupLink && (
             <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 space-y-2">
               <p className="text-xs font-semibold text-brand-700">
-                Link de primeiro acesso
+                Link de acesso
               </p>
               <p className="text-xs text-brand-600">
-                Envie este link ao responsável pelo WhatsApp, Telegram ou outro canal. Ao clicar, ele define a senha e acessa o painel da horta.
+                Copie e envie ao responsável pelo WhatsApp ou outro canal. Ao clicar, ele define (ou redefine) a senha e acessa o painel da horta. O link expira em 1 hora.
               </p>
               <div className="flex gap-2">
                 <input

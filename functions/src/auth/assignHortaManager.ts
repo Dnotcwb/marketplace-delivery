@@ -134,17 +134,17 @@ export const assignHortaManager = onCall<AssignData>(
       timestamp: FieldValue.serverTimestamp(),
     })
 
-    // Gera link de definição de senha para contas novas
+    // Gera sempre o link de acesso (redefinição de senha)
+    // Útil tanto para contas novas quanto para reenvio a contas existentes
     let passwordSetupLink: string | undefined
-    if (userCreated) {
-      try {
-        passwordSetupLink = await admin.auth().generatePasswordResetLink(email, {
-          url: 'https://marketplace-delivery-horta.netlify.app/login',
-          handleCodeInApp: false,
-        })
-      } catch {
-        // Se falhar, segue sem o link — backoffice avisa o admin
-      }
+    try {
+      passwordSetupLink = await admin.auth().generatePasswordResetLink(email, {
+        url: 'https://marketplace-delivery-horta.netlify.app/login',
+        handleCodeInApp: false,
+      })
+    } catch (err) {
+      console.error('generatePasswordResetLink failed:', err)
+      // Segue sem o link — backoffice exibe aviso
     }
 
     return { uid, email, name: userName, userCreated, passwordSetupLink }
