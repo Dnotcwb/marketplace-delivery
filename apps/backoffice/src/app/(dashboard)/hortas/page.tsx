@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { auth, firestore } from '@marketplace/shared-firebase'
 import type { Horta, Produtor } from '@marketplace/shared-types'
 import {
@@ -15,6 +16,7 @@ import { sendPasswordResetEmail } from 'firebase/auth'
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   updateDoc,
@@ -474,46 +476,74 @@ interface AtribuirProdutoresModalProps {
 function AtribuirProdutoresModal({ horta, onClose }: AtribuirProdutoresModalProps) {
   const [produtores, setProdutores] = useState<Produtor[]>([])
   const [saving, setSaving] = useState(false)
-  const [assigned, setAssigned] = useState<Set<string>>(new Set(horta.produtorIds))
+  const [saveError, setSaveError] = useState('')
+  const [phantomCount, setPhantomCount] = useState(0)
+  // Ref para evitar problema de closure desatualizada no handleSave
+  const assignedRef = React.useRef<Set<string>>(new Set(horta.produtorIds))
+  const [assigned, setAssignedState] = useState<Set<string>>(new Set(horta.produtorIds))
+
+  function setAssigned(s: Set<string>) {
+    assignedRef.current = s
+    setAssignedState(s)
+  }
 
   useEffect(() => {
     getDocs(
       query(collection(firestore, 'produtores'), where('status', '==', 'approved')),
     ).then((snap) => {
-      setProdutores(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Produtor))
+      const loaded = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Produtor)
+      setProdutores(loaded)
+
+      // Remove IDs fantasmas do set inicial
+      const validIds = new Set(loaded.map((p) => p.id))
+      const original = assignedRef.current
+      const cleaned = new Set([...original].filter((id) => validIds.has(id)))
+      const removed = original.size - cleaned.size
+      if (removed > 0) {
+        setPhantomCount(removed)
+        setAssigned(cleaned)
+      }
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     setSaving(true)
+    setSaveError('')
     try {
-      const assignedList = [...assigned]
-      const updates: Promise<void>[] = []
+      const current = assignedRef.current
+      const assignedList = [...current]
 
-      for (const pid of assignedList) {
-        updates.push(updateDoc(doc(firestore, 'produtores', pid), { hortaId: horta.id }))
-      }
-      for (const pid of horta.produtorIds) {
-        if (!assigned.has(pid)) {
-          updates.push(updateDoc(doc(firestore, 'produtores', pid), { hortaId: null }))
-        }
-      }
-      await Promise.all(updates)
+      // Atualiza hortaId nos produtores marcados
+      await Promise.all(
+        assignedList.map((pid) =>
+          updateDoc(doc(firestore, 'produtores', pid), { hortaId: horta.id }),
+        ),
+      )
+
+      // Remove hortaId dos produtores desmarcados (ignora falhas individuais)
+      const toRemove = horta.produtorIds.filter((pid) => !current.has(pid))
+      await Promise.allSettled(
+        toRemove.map((pid) =>
+          updateDoc(doc(firestore, 'produtores', pid), { hortaId: null }),
+        ),
+      )
+
+      // Salva a lista final na horta
       await updateHorta(horta.id, { produtorIds: assignedList })
       onClose()
-    } catch {
-      // silencioso
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.'
+      setSaveError(msg)
     } finally {
       setSaving(false)
     }
   }
 
   function toggle(pid: string) {
-    setAssigned((prev) => {
-      const next = new Set(prev)
-      next.has(pid) ? next.delete(pid) : next.add(pid)
-      return next
-    })
+    // Usa assignedRef para evitar closure desatualizada
+    const next = new Set(assignedRef.current)
+    next.has(pid) ? next.delete(pid) : next.add(pid)
+    setAssigned(next)
   }
 
   return (
@@ -524,7 +554,12 @@ function AtribuirProdutoresModal({ horta, onClose }: AtribuirProdutoresModalProp
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          {produtores.length === 0 && (
+          {phantomCount > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+              {phantomCount} ID(s) inválido(s) encontrado(s) e removido(s) automaticamente. Clique em "Salvar" para confirmar a limpeza.
+            </div>
+          )}
+          {produtores.length === 0 && phantomCount === 0 && (
             <p className="text-sm text-neutral-400">Nenhum produtor aprovado encontrado.</p>
           )}
           {produtores.map((p) => (
@@ -545,8 +580,11 @@ function AtribuirProdutoresModal({ horta, onClose }: AtribuirProdutoresModalProp
             </label>
           ))}
         </div>
+        {saveError && (
+          <p className="mx-6 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{saveError}</p>
+        )}
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-neutral-100">
-          <button onClick={onClose} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50">
+          <button onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-60">
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving} className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
@@ -611,6 +649,8 @@ function DeleteModal({ horta, onConfirm, onCancel, deleting }: DeleteModalProps)
 
 export default function HortasPage() {
   const [hortas, setHortas] = useState<Horta[]>([])
+  // Contagem real de produtores por horta (excluindo IDs fantasmas)
+  const [realCounts, setRealCounts] = useState<Record<string, number>>({})
   const [modal, setModal] = useState<{ open: boolean; editing: Horta | null }>({ open: false, editing: null })
   const [atribuirModal, setAtribuirModal] = useState<Horta | null>(null)
   const [responsavelModal, setResponsavelModal] = useState<Horta | null>(null)
@@ -618,7 +658,24 @@ export default function HortasPage() {
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    return subscribeToHortas(setHortas)
+    return subscribeToHortas((loaded) => {
+      setHortas(loaded)
+      // Valida contagem real para cada horta (ignora IDs fantasmas)
+      loaded.forEach((h) => {
+        if (!h.produtorIds.length) {
+          setRealCounts((prev) => ({ ...prev, [h.id]: 0 }))
+          return
+        }
+        Promise.allSettled(
+          h.produtorIds.map((pid) => getDoc(doc(firestore, 'produtores', pid))),
+        ).then((results) => {
+          const count = results.filter(
+            (r) => r.status === 'fulfilled' && r.value.exists(),
+          ).length
+          setRealCounts((prev) => ({ ...prev, [h.id]: count }))
+        })
+      })
+    })
   }, [])
 
   async function handleDelete(horta: Horta) {
@@ -704,7 +761,7 @@ export default function HortasPage() {
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500 mt-0.5">
-                      {h.address.neighborhood}, {h.address.city} — {h.produtorIds.length} produtor(es)
+                      {h.address.neighborhood}, {h.address.city} — {realCounts[h.id] ?? '…'} produtor(es)
                     </p>
 
                     {/* Responsável */}
