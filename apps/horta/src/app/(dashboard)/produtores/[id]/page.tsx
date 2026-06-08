@@ -4,7 +4,7 @@ import { firestore } from '@marketplace/shared-firebase'
 import { updateHorta } from '@marketplace/shared-services'
 import type { Produtor } from '@marketplace/shared-types'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useHorta } from '@/components/HortaGuard'
 
@@ -19,21 +19,23 @@ const STATUS_CLS: Record<string, string> = {
   rejected: 'bg-neutral-100 text-neutral-500',
 }
 
-export default function ProdutorDetalhePage({ params }: { params: { id: string } }) {
+export default function ProdutorDetalhePage() {
   const { horta, hortaId } = useHorta()
   const router = useRouter()
+  const params = useParams()
+  const produtorId = params.id as string
   const [produtor, setProdutor] = useState<Produtor | null>(null)
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState('')
 
   useEffect(() => {
-    getDoc(doc(firestore, 'produtores', params.id))
+    getDoc(doc(firestore, 'produtores', produtorId))
       .then((snap) => {
         if (snap.exists()) setProdutor({ id: snap.id, ...snap.data() } as Produtor)
       })
       .finally(() => setLoading(false))
-  }, [params.id])
+  }, [produtorId])
 
   async function handleRemover() {
     if (!produtor) return
