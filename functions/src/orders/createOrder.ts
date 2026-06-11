@@ -93,6 +93,18 @@ async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | n
 const WEBHOOK_URL =
   'https://southamerica-east1-marketplace-delivery-dev.cloudfunctions.net/mercadoPagoWebhook'
 
+const CONSUMIDOR_URL =
+  process.env['CONSUMIDOR_APP_URL'] ?? 'https://marketplace-delivery-consumidor.netlify.app'
+
+// Comissão da plataforma definida POR PRODUTOR em produtores/{id}.commission,
+// como percentual 0–100 (é assim que o backoffice grava o campo).
+const DEFAULT_COMMISSION_PCT = 10
+
+function commissionPctOf(produtorData: FirebaseFirestore.DocumentData): number {
+  const raw = produtorData['commission']
+  return typeof raw === 'number' && raw >= 0 && raw <= 100 ? raw : DEFAULT_COMMISSION_PCT
+}
+
 export const createOrder = onCall(
   { region: 'southamerica-east1', secrets: ['MERCADO_PAGO_ACCESS_TOKEN'] },
   async (request) => {
@@ -108,6 +120,21 @@ export const createOrder = onCall(
 
       if (!data.hortaId || !data.items?.length || !data.deliveryAddress || !data.paymentMethod) {
         throw new HttpsError('invalid-argument', 'Dados inválidos')
+      }
+
+      if (data.items.length > 100) {
+        throw new HttpsError('invalid-argument', 'Pedido excede o limite de itens')
+      }
+      for (const item of data.items) {
+        if (!item.produtorId || !item.productId) {
+          throw new HttpsError('invalid-argument', 'Item sem produto ou produtor')
+        }
+        if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 999) {
+          throw new HttpsError('invalid-argument', 'Quantidade inválida em um dos itens')
+        }
+        if (item.notes && item.notes.length > 500) {
+          throw new HttpsError('invalid-argument', 'Observação do item muito longa')
+        }
       }
 
       const db = admin.firestore()
@@ -278,27 +305,32 @@ export const createOrder = onCall(
         )
       }
 
-      // 3-4. Cupom + dados do cliente em paralelo
+      // 3-4. Cupom + dados do cliente
       console.log('Etapa 3: cupom —', data.couponCode ?? 'nenhum')
-      const [couponSnap, userSnap] = await Promise.all([
-        data.couponCode
-          ? db.collection('coupons').doc(data.couponCode.toUpperCase()).get()
-          : Promise.resolve(null),
-        db.collection('users').doc(uid).get(),
-      ])
+      const userSnap = await db.collection('users').doc(uid).get()
 
       let discountInCents = 0
       let couponCode: string | undefined
 
-      if (data.couponCode && couponSnap?.exists) {
-        const c = couponSnap.data()!
-        const now = new Date()
-        const validFrom = c['validFrom'].toDate() as Date
-        const validUntil = c['validUntil'].toDate() as Date
-        const usesOk = !c['maxUses'] || (c['usedCount'] as number) < (c['maxUses'] as number)
-        const minOk = !c['minOrderValueInCents'] || subtotalGlobalInCents >= (c['minOrderValueInCents'] as number)
+      if (data.couponCode) {
+        const couponRef = db.collection('coupons').doc(data.couponCode.toUpperCase())
+        // Transação: valida e consome o uso atomicamente — sem ela, duas
+        // requisições simultâneas podem ultrapassar o maxUses.
+        await db.runTransaction(async (tx) => {
+          // Reinicia a cada tentativa (a transação pode ser reexecutada)
+          discountInCents = 0
+          couponCode = undefined
 
-        if (c['active'] && validFrom <= now && validUntil >= now && usesOk && minOk) {
+          const couponSnap = await tx.get(couponRef)
+          if (!couponSnap.exists) return
+          const c = couponSnap.data()!
+          const now = new Date()
+          const validFrom = c['validFrom'].toDate() as Date
+          const validUntil = c['validUntil'].toDate() as Date
+          const usesOk = !c['maxUses'] || (c['usedCount'] as number) < (c['maxUses'] as number)
+          const minOk = !c['minOrderValueInCents'] || subtotalGlobalInCents >= (c['minOrderValueInCents'] as number)
+          if (!(c['active'] && validFrom <= now && validUntil >= now && usesOk && minOk)) return
+
           couponCode = couponSnap.id
           if (c['type'] === 'percentage') {
             discountInCents = Math.floor(subtotalGlobalInCents * ((c['value'] as number) / 100))
@@ -309,8 +341,8 @@ export const createOrder = onCall(
             discountInCents = Math.min(discountInCents, c['maxDiscountInCents'] as number)
           }
           discountInCents = Math.min(discountInCents, subtotalGlobalInCents)
-          await couponSnap.ref.update({ usedCount: FieldValue.increment(1) })
-        }
+          tx.update(couponRef, { usedCount: FieldValue.increment(1) })
+        })
       }
 
       const totalInCents = subtotalGlobalInCents + deliveryFeeInCents - discountInCents
@@ -376,11 +408,11 @@ export const createOrder = onCall(
 
       // 6. Cria pedidos filhos (um por produtor)
       console.log('Etapa 6: criando', produtorGroups.size, 'pedido(s) filho(s)')
-      const commission = (horta['commission'] as number) ?? 0.10
 
       const filhoBatch = db.batch()
       for (const [produtorId, group] of produtorGroups) {
-        const valorRepasse = Math.round(group.subtotalInCents * (1 - commission))
+        const commissionPct = commissionPctOf(group.produtorData)
+        const valorRepasse = Math.round(group.subtotalInCents * (1 - commissionPct / 100))
         const filhoRef = db.collection('pedidos_filhos').doc()
         filhoBatch.set(filhoRef, {
           pedidoPaiId: orderId,
@@ -423,8 +455,10 @@ export const createOrder = onCall(
         const producerToken = mpTokenSnap.data()?.['accessToken'] as string | undefined
         if (producerToken) {
           mpToken = producerToken
-          const commission = (horta['commission'] as number) ?? 0.10
-          marketplaceFeeAmount = Math.round(totalInCents * commission) / 100
+          const commissionPct = commissionPctOf(
+            produtorGroups.get(singleProdutorId)!.produtorData,
+          )
+          marketplaceFeeAmount = Math.round(totalInCents * (commissionPct / 100)) / 100
           console.log('Usando token do produtor — split direto, taxa plataforma:', marketplaceFeeAmount)
         }
       }
@@ -479,9 +513,9 @@ export const createOrder = onCall(
             notification_url: WEBHOOK_URL,
             ...(marketplaceFeeAmount !== undefined && { marketplace_fee: marketplaceFeeAmount }),
             back_urls: {
-              success: `https://consumidor.netlify.app/pedido/${orderId}`,
-              failure: `https://consumidor.netlify.app/checkout`,
-              pending: `https://consumidor.netlify.app/pedido/${orderId}`,
+              success: `${CONSUMIDOR_URL}/pedido/${orderId}`,
+              failure: `${CONSUMIDOR_URL}/checkout`,
+              pending: `${CONSUMIDOR_URL}/pedido/${orderId}`,
             },
             auto_return: 'approved',
           },
@@ -500,8 +534,9 @@ export const createOrder = onCall(
       if (err instanceof HttpsError) throw err
       let errDetail: string
       try { errDetail = JSON.stringify(err) } catch { errDetail = String(err) }
+      // Detalhe completo só no log do servidor — nunca devolvido ao cliente.
       console.error('createOrder erro não tratado:', errDetail)
-      throw new HttpsError('internal', `Detalhe: ${errDetail}`)
+      throw new HttpsError('internal', 'Erro interno ao criar o pedido. Tente novamente.')
     }
   },
 )

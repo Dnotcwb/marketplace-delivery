@@ -7,28 +7,33 @@ import * as crypto from 'crypto'
 export const mercadoPagoWebhook = onRequest(
   { region: 'southamerica-east1', secrets: ['MERCADO_PAGO_ACCESS_TOKEN', 'MERCADO_PAGO_WEBHOOK_SECRET'] },
   async (req, res) => {
-    // Verifica assinatura HMAC (quando configurada)
+    // Verifica assinatura HMAC (quando configurada).
+    // Com o secret configurado, requisições SEM assinatura são rejeitadas —
+    // aceitar o evento sem validar abriria caminho para webhooks forjados.
     const webhookSecret = process.env['MERCADO_PAGO_WEBHOOK_SECRET']
     if (webhookSecret) {
       const xSignature = req.headers['x-signature'] as string | undefined
       const xRequestId = req.headers['x-request-id'] as string | undefined
 
-      if (xSignature && xRequestId) {
-        const dataId = (req.query['data.id'] as string) ?? (req.body?.data?.id as string)
-        const parts = xSignature.split(',')
-        let ts = ''
-        let hash = ''
-        for (const part of parts) {
-          const [key, value] = part.trim().split('=')
-          if (key === 'ts') ts = value ?? ''
-          if (key === 'v1') hash = value ?? ''
-        }
-        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
-        const expected = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex')
-        if (expected !== hash) {
-          res.status(400).json({ error: 'Invalid signature' })
-          return
-        }
+      if (!xSignature || !xRequestId) {
+        res.status(400).json({ error: 'Missing signature headers' })
+        return
+      }
+
+      const dataId = (req.query['data.id'] as string) ?? (req.body?.data?.id as string)
+      const parts = xSignature.split(',')
+      let ts = ''
+      let hash = ''
+      for (const part of parts) {
+        const [key, value] = part.trim().split('=')
+        if (key === 'ts') ts = value ?? ''
+        if (key === 'v1') hash = value ?? ''
+      }
+      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
+      const expected = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex')
+      if (expected !== hash) {
+        res.status(400).json({ error: 'Invalid signature' })
+        return
       }
     }
 
@@ -56,9 +61,36 @@ export const mercadoPagoWebhook = onRequest(
     }
 
     try {
+      const db = admin.firestore()
       const client = new MercadoPagoConfig({ accessToken: mpToken })
       const paymentApi = new Payment(client)
-      const mpPayment = await paymentApi.get({ id: String(paymentId) })
+
+      // Pagamentos de split direto são criados com o token DO PRODUTOR e não
+      // existem na conta da plataforma. Se a consulta com o token da plataforma
+      // falhar, localiza o pedido pelo externalId e reconsulta com o token
+      // do produtor (mp_tokens/{produtorId}).
+      let mpPayment
+      try {
+        mpPayment = await paymentApi.get({ id: String(paymentId) })
+      } catch (platformErr) {
+        const orderQuery = await db
+          .collection('orders')
+          .where('payment.externalId', '==', String(paymentId))
+          .limit(1)
+          .get()
+        if (orderQuery.empty) throw platformErr
+
+        const produtorId = orderQuery.docs[0]!.data()['produtorId'] as string | undefined
+        const tokenSnap = produtorId
+          ? await db.collection('mp_tokens').doc(produtorId).get()
+          : null
+        const producerToken = tokenSnap?.data()?.['accessToken'] as string | undefined
+        if (!producerToken) throw platformErr
+
+        const producerClient = new MercadoPagoConfig({ accessToken: producerToken })
+        mpPayment = await new Payment(producerClient).get({ id: String(paymentId) })
+        console.log(`Webhook: pagamento ${paymentId} resolvido com token do produtor ${produtorId}`)
+      }
 
       const orderId = mpPayment.external_reference
       if (!orderId) {
@@ -66,7 +98,6 @@ export const mercadoPagoWebhook = onRequest(
         return
       }
 
-      const db = admin.firestore()
       const orderRef = db.collection('orders').doc(orderId)
       const orderSnap = await orderRef.get()
       if (!orderSnap.exists) {
