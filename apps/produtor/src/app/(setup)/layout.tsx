@@ -3,7 +3,7 @@ import Logo from '@/components/Logo'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Configurar produtor — Brota',
+  title: 'Configurar produtor — Brota Digital',
 }
 
 export default function SetupLayout({ children }: { children: React.ReactNode }) {

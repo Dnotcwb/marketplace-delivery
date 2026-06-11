@@ -12,10 +12,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Brota — Entregador',
-    template: '%s | Entregador',
+    default: 'Brota Digital — Entregador',
+    template: '%s | Brota Digital',
   },
-  description: 'App do entregador — Brota Delivery.',
+  description: 'App do entregador — Brota Digital.',
 }
 
 export default function RootLayout({

@@ -67,18 +67,25 @@ function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
   )
 
   const byProdutor = useMemo(() => {
-    const map: Record<string, { name: string; gmv: number; count: number }> = {}
+    const map: Record<string, { name: string; gmv: number; repasse: number; comissao: number; count: number }> = {}
     filteredFilhos.forEach((f) => {
       if (!map[f.produtorId]) {
-        map[f.produtorId] = { name: f.produtorName, gmv: 0, count: 0 }
+        map[f.produtorId] = { name: f.produtorName, gmv: 0, repasse: 0, comissao: 0, count: 0 }
       }
-      map[f.produtorId]!.gmv += filhoSubtotal(f)
+      const sub = filhoSubtotal(f)
+      // Comissão retida = subtotal do produtor − valor repassado a ele.
+      // O repasse é fixado na criação do pedido (snapshot da comissão da época).
+      const repasse = f.valorRepasseInCents ?? 0
+      map[f.produtorId]!.gmv += sub
+      map[f.produtorId]!.repasse += repasse
+      map[f.produtorId]!.comissao += Math.max(0, sub - repasse)
       map[f.produtorId]!.count += 1
     })
     return Object.entries(map).sort((a, b) => b[1].gmv - a[1].gmv)
   }, [filteredFilhos])
 
   const totalGmv = filteredOrders.reduce((s, o) => s + o.totalInCents, 0)
+  const totalComissao = byProdutor.reduce((s, [, d]) => s + d.comissao, 0)
   const filtered = filteredOrders
 
   return (
@@ -95,13 +102,20 @@ function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm">
           <div className="mb-1 text-xl sm:text-2xl">💰</div>
           <p className="truncate text-lg font-bold text-neutral-900 sm:text-2xl">
             {loading ? '—' : formatCurrency(totalGmv)}
           </p>
           <p className="mt-0.5 text-xs text-neutral-500">GMV total no período</p>
+        </div>
+        <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 sm:p-5 shadow-sm">
+          <div className="mb-1 text-xl sm:text-2xl">🏦</div>
+          <p className="truncate text-lg font-bold text-brand-700 sm:text-2xl">
+            {loading ? '—' : formatCurrency(totalComissao)}
+          </p>
+          <p className="mt-0.5 text-xs text-brand-600">Comissão da plataforma</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm">
           <div className="mb-1 text-xl sm:text-2xl">📦</div>
@@ -110,7 +124,7 @@ function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
           </p>
           <p className="mt-0.5 text-xs text-neutral-500">Pedidos concluídos</p>
         </div>
-        <div className="col-span-2 rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm lg:col-span-1">
+        <div className="rounded-xl border border-neutral-200 bg-white p-3 sm:p-5 shadow-sm">
           <div className="mb-1 text-xl sm:text-2xl">🌿</div>
           <p className="truncate text-lg font-bold text-neutral-900 sm:text-2xl">
             {loading ? '—' : byProdutor.length}
@@ -137,9 +151,10 @@ function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
                   <th className="px-5 py-3 text-left">#</th>
                   <th className="px-5 py-3 text-left">Produtor</th>
                   <th className="px-5 py-3 text-center">Pedidos</th>
-                  <th className="px-5 py-3 text-right">GMV</th>
-                  <th className="px-5 py-3 text-right">Ticket médio</th>
-                  <th className="px-5 py-3 text-right">% do total</th>
+                  <th className="px-5 py-3 text-right">GMV (produtos)</th>
+                  <th className="px-5 py-3 text-right">Comissão</th>
+                  <th className="px-5 py-3 text-right">Repasse</th>
+                  <th className="px-5 py-3 text-right">% comissão</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -149,11 +164,10 @@ function TabFaturamento({ orders, filhos, loading, period, setPeriod }: {
                     <td className="px-5 py-3 font-medium text-neutral-900">{data.name}</td>
                     <td className="px-5 py-3 text-center text-neutral-700">{data.count}</td>
                     <td className="px-5 py-3 text-right font-bold text-neutral-900">{formatCurrency(data.gmv)}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-brand-700">{formatCurrency(data.comissao)}</td>
+                    <td className="px-5 py-3 text-right text-neutral-600">{formatCurrency(data.repasse)}</td>
                     <td className="px-5 py-3 text-right text-neutral-500">
-                      {formatCurrency(Math.round(data.gmv / data.count))}
-                    </td>
-                    <td className="px-5 py-3 text-right text-neutral-500">
-                      {totalGmv > 0 ? `${Math.round((data.gmv / totalGmv) * 100)}%` : '—'}
+                      {data.gmv > 0 ? `${Math.round((data.comissao / data.gmv) * 100)}%` : '—'}
                     </td>
                   </tr>
                 ))}

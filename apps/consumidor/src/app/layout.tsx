@@ -13,13 +13,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Brota — Delivery',
-    template: '%s | Brota',
+    default: 'Brota Digital — Delivery',
+    template: '%s | Brota Digital',
   },
   description: 'Compre direto de produtores e hortas urbanas da sua região com entrega rápida.',
-  keywords: ['delivery', 'hortas', 'produtos orgânicos', 'agroecologia', 'pedido online', 'Brota'],
+  keywords: ['delivery', 'hortas', 'produtos orgânicos', 'agroecologia', 'pedido online', 'Brota Digital'],
   openGraph: {
-    title: 'Brota — Delivery',
+    title: 'Brota Digital — Delivery',
     description: 'Compre direto de produtores e hortas urbanas da sua região.',
     type: 'website',
     locale: 'pt_BR',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Brota',
+    title: 'Brota Digital',
   },
   formatDetection: { telephone: false },
 }

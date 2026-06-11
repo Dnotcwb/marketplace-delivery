@@ -12,8 +12,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Painel do Produtor — Brota',
-    template: '%s | Brota Produtor',
+    default: 'Painel do Produtor — Brota Digital',
+    template: '%s | Brota Digital',
   },
   description: 'Gerencie seus produtos e pedidos em tempo real.',
 }

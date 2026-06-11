@@ -4,6 +4,7 @@ import { useAuth } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import Logo from './Logo'
 
 const NAV_ITEMS = [
   {
@@ -71,12 +72,9 @@ export default function Topbar() {
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white">
         <div className="flex h-14 items-center gap-4 px-4">
           {/* Marca */}
-          <div className="flex items-center gap-2">
-            <svg className="h-6 w-6 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-            </svg>
-            <span className="font-bold text-brand-600">Entregador</span>
-          </div>
+          <Link href="/" className="flex items-center" aria-label="Brota Digital — Entregador">
+            <Logo size={26} />
+          </Link>
 
           {/* Nav links — desktop */}
           <nav className="hidden flex-1 items-center gap-1 sm:flex">

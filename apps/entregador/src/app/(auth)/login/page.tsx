@@ -4,6 +4,7 @@ import { useAuth } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Logo from '@/components/Logo'
 
 export default function LoginPage() {
   const { signInWithEmail, signInWithGoogle } = useAuth()
@@ -42,9 +43,9 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <div className="mb-3 text-5xl">🛵</div>
-        <h1 className="text-2xl font-bold text-neutral-900">Entregador</h1>
+      <div className="mb-8 flex flex-col items-center text-center">
+        <Logo variant="lockup" size={88} className="mb-3" />
+        <p className="text-sm font-medium text-brand-600">Entregador</p>
         <p className="mt-1 text-sm text-neutral-500">
           Não tem conta?{' '}
           <Link href="/cadastro" className="text-brand-500 hover:underline">
