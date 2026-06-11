@@ -116,19 +116,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [state])
 
   // Hydrate from storage once on mount
+  const hydratedRef = useRef(false)
   useEffect(() => {
     const saved = loadFromStorage()
     // Only update if storage has actual data
     if (saved.horta || saved.items.length > 0) {
       setState(saved)
     }
+    hydratedRef.current = true
   }, [])
 
   // Debounced localStorage save — avoids blocking the thread on rapid quantity taps
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    // Skip saving the initial empty state on mount
-    if (!state.horta && state.items.length === 0) return
+    // Não salva antes de hidratar (evita sobrescrever o storage no mount).
+    // Depois de hidratado, persiste QUALQUER estado — inclusive o vazio. Sem
+    // isso, remover o último item não era salvo e ele "voltava" ao recarregar.
+    if (!hydratedRef.current) return
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {

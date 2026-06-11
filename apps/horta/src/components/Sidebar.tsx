@@ -55,19 +55,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-brand-800',
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-brand-900',
           'transition-transform duration-300 ease-in-out',
           open ? 'translate-x-0' : '-translate-x-full',
           'lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:transition-none',
         ].join(' ')}
       >
-        <div className="flex h-16 items-center justify-between border-b border-brand-900/50 px-5">
+        <div className="flex h-16 items-center justify-between border-b border-brand-950/60 px-5">
           <Link href="/" onClick={onClose} aria-label="Brota — início">
             <Logo variant="full" size={32} dark />
           </Link>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-brand-300 transition-colors hover:bg-brand-700/60 hover:text-white lg:hidden"
+            className="rounded-lg p-2 text-brand-400 transition-colors hover:bg-brand-800/60 hover:text-white lg:hidden"
             aria-label="Fechar menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -90,11 +90,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className={[
                       'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors',
                       active
-                        ? 'bg-brand-900/60 text-white'
-                        : 'text-brand-200 hover:bg-brand-700/60 hover:text-white',
+                        ? 'bg-brand-800 text-white'
+                        : 'text-brand-300 hover:bg-brand-800/60 hover:text-white',
                     ].join(' ')}
                   >
-                    <span className={active ? 'text-brand-300' : 'text-brand-400'}>
+                    <span className={active ? 'text-brand-400' : 'text-brand-500'}>
                       {item.icon}
                     </span>
                     {item.label}
@@ -105,8 +105,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        <div className="border-t border-brand-900/50 px-5 py-4">
-          <span className="text-xs text-brand-500">Brota · Horta</span>
+        <div className="border-t border-brand-950/60 px-5 py-4">
+          <span className="text-xs text-brand-600">Brota Digital · Horta</span>
         </div>
       </aside>
     </>
