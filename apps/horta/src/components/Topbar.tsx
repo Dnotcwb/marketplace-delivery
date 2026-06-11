@@ -3,6 +3,7 @@
 import { useAuth } from '@marketplace/shared-services'
 import { useRouter } from 'next/navigation'
 import { useHorta } from './HortaGuard'
+import Logo from './Logo'
 
 interface TopbarProps {
   onMenuClick: () => void
@@ -35,6 +36,9 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+
+        {/* Marca — visível no mobile (o Sidebar fica oculto) */}
+        <Logo variant="mark" size={30} className="lg:hidden" />
 
         {/* Status da horta */}
         <span

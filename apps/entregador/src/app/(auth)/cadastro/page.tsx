@@ -4,6 +4,7 @@ import { useAuth } from '@marketplace/shared-services'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Logo from '@/components/Logo'
 
 export default function CadastroPage() {
   const { signInWithEmail, signInWithGoogle } = useAuth()
@@ -53,7 +54,7 @@ export default function CadastroPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <div className="mb-3 text-5xl">🛵</div>
+        <Logo variant="lockup" size={80} className="mx-auto mb-3" />
         <h1 className="text-2xl font-bold text-neutral-900">Criar conta</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Já tem conta?{' '}

@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import Logo from '@/components/Logo'
 
 const schema = z.object({
   displayName: z.string().min(3, 'Nome deve ter ao menos 3 caracteres'),
@@ -89,7 +90,7 @@ export default function ConfigurarPage() {
   return (
     <div className="w-full max-w-md">
       <div className="mb-6 text-center">
-        <div className="mb-3 text-5xl">🛵</div>
+        <Logo variant="lockup" size={72} className="mx-auto mb-3" />
         <h1 className="text-2xl font-bold text-neutral-900">Complete seu perfil</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Preencha os dados abaixo para solicitar aprovação como entregador.
