@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  callGenerateAccessLink,
   callRemoveProducerMpToken,
   callSetProducerMpToken,
   callSetUserRole,
@@ -68,6 +69,11 @@ export default function ProdutorDetailPage() {
   const [savingMp, setSavingMp] = useState(false)
   const [mpStatus, setMpStatus] = useState<'idle' | 'ok' | 'err' | 'removing'>('idle')
 
+  const [accessLink, setAccessLink] = useState<string | null>(null)
+  const [generatingLink, setGeneratingLink] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+
   useEffect(() => {
     if (!id) return
     getProdutorById(id).then(async (p) => {
@@ -98,6 +104,33 @@ export default function ProdutorDetailPage() {
   }
 
   const badge = STATUS_BADGE[produtor.status]
+
+  async function handleGenerateAccessLink() {
+    if (!produtor) return
+    setGeneratingLink(true)
+    setLinkError(null)
+    setLinkCopied(false)
+    try {
+      const result = await callGenerateAccessLink(produtor.ownerUid)
+      setAccessLink(result.link)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ''
+      setLinkError(msg || 'Erro ao gerar o link. Tente novamente.')
+    } finally {
+      setGeneratingLink(false)
+    }
+  }
+
+  async function handleCopyAccessLink() {
+    if (!accessLink) return
+    try {
+      await navigator.clipboard.writeText(accessLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    } catch {
+      // navegador sem clipboard API — o input permite selecionar e copiar manualmente
+    }
+  }
 
   async function handleApprove() {
     if (!user || !produtor) return
@@ -513,6 +546,52 @@ export default function ProdutorDetailPage() {
             Deletar produtor permanentemente
           </button>
           <p className="mt-1 text-xs text-neutral-400">Esta ação não pode ser desfeita.</p>
+        </div>
+
+        {/* Acesso do produtor (reset de senha) */}
+        <div className="mt-5 border-t border-neutral-100 pt-5">
+          <p className="mb-1 text-sm font-semibold text-neutral-700">Acesso do produtor</p>
+          <p className="mb-3 text-xs text-neutral-400">
+            Gera um link de redefinição de senha para enviar ao produtor por WhatsApp ou
+            outro canal — útil quando o e-mail do cadastro não recebe mensagens.
+          </p>
+
+          {!accessLink ? (
+            <button
+              onClick={handleGenerateAccessLink}
+              disabled={generatingLink}
+              className="rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+            >
+              {generatingLink ? 'Gerando…' : '🔑 Gerar link de redefinição de senha'}
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs font-medium text-emerald-700">
+                Link gerado — copie e envie ao produtor:
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={accessLink}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none"
+                />
+                <button
+                  onClick={handleCopyAccessLink}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  {linkCopied ? '✓ Copiado!' : 'Copiar'}
+                </button>
+              </div>
+              <button
+                onClick={() => { setAccessLink(null); setLinkCopied(false) }}
+                className="text-xs font-medium text-neutral-500 hover:underline"
+              >
+                Gerar novo link
+              </button>
+            </div>
+          )}
+          {linkError && <p className="mt-2 text-xs text-red-600">{linkError}</p>}
         </div>
 
         {/* Comissão */}

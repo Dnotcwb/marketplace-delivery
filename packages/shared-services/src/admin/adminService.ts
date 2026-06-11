@@ -105,6 +105,28 @@ export async function callAssignHortaManager(
   return result.data
 }
 
+// ── generateAccessLink ──────────────────────────────────
+
+export interface AccessLinkResult {
+  email: string
+  link: string
+}
+
+const generateAccessLinkFn = httpsCallable<{ uid: string }, AccessLinkResult>(
+  functions,
+  'generateAccessLink',
+)
+
+/**
+ * Gera um link de redefinição de senha para o usuário (somente admins).
+ * Útil para contas com e-mail fictício: o link é exibido no backoffice
+ * para ser copiado e enviado por outro canal.
+ */
+export async function callGenerateAccessLink(uid: string): Promise<AccessLinkResult> {
+  const result = await generateAccessLinkFn({ uid })
+  return result.data
+}
+
 const setProducerMpTokenFn = httpsCallable<
   { produtorId: string; accessToken: string },
   { ok: boolean }
