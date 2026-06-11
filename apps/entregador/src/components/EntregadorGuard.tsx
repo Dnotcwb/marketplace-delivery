@@ -1,7 +1,7 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
-import { useAuth } from '@marketplace/shared-services'
+import { callSelfRevokeOrphanedClaim, useAuth } from '@marketplace/shared-services'
 import { doc, getDoc } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -31,10 +31,34 @@ export default function EntregadorGuard({ children }: { children: React.ReactNod
         }
       }
 
-      // 2. Tem o role correto → entra no dashboard
+      // 2. Tem o role — mas o claim sozinho NÃO basta: precisa existir o
+      //    cadastro aprovado em deliveryDrivers (claims órfãos de contas de
+      //    teste/removidas dariam acesso sem aparecer no backoffice).
       if (role === 'entregador') {
-        setState('ready')
-        return
+        try {
+          const snap = await getDoc(doc(firestore, 'deliveryDrivers', user!.uid))
+          const status = snap.data()?.status as string | undefined
+
+          if (snap.exists() && status === 'approved') {
+            setState('ready')
+            return
+          }
+
+          if (!snap.exists()) {
+            // Claim órfão (sem cadastro) → revoga e manda preencher o perfil
+            await callSelfRevokeOrphanedClaim().catch(() => { /* melhor esforço */ })
+            setState('go_configurar')
+            return
+          }
+
+          // Cadastro existe mas não está aprovado (pendente/suspenso/rejeitado)
+          setState('go_aguardando')
+          return
+        } catch (err) {
+          console.error('EntregadorGuard validação do cadastro falhou:', err)
+          setState('error')
+          return
+        }
       }
 
       // 3. Sem o role — consulta o Firestore para saber o estado do cadastro

@@ -1,7 +1,19 @@
 'use client'
 
-import { callCleanupGhostProdutores, type GhostAccount } from '@marketplace/shared-services'
+import {
+  callAuditGhostUsers,
+  callCleanupGhostProdutores,
+  type AuditedUser,
+  type GhostAccount,
+} from '@marketplace/shared-services'
 import { useCallback, useEffect, useState } from 'react'
+
+const ROLE_LABEL: Record<string, string> = {
+  cliente: 'Cliente',
+  produtor: 'Produtor',
+  entregador: 'Entregador',
+  horta: 'Gestor de horta',
+}
 
 export default function RegistrosIncompletosPage() {
   const [ghosts, setGhosts] = useState<GhostAccount[]>([])
@@ -10,6 +22,11 @@ export default function RegistrosIncompletosPage() {
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [emailInput, setEmailInput] = useState('')
   const [deletingAll, setDeletingAll] = useState(false)
+
+  // Auditoria geral de usuários
+  const [auditResults, setAuditResults] = useState<AuditedUser[] | null>(null)
+  const [auditing, setAuditing] = useState(false)
+  const [auditActing, setAuditActing] = useState<string | null>(null)
 
   const listGhosts = useCallback(async () => {
     setLoading(true)
@@ -76,6 +93,58 @@ export default function RegistrosIncompletosPage() {
     }
   }
 
+  async function handleRunAudit() {
+    setAuditing(true)
+    setMsg(null)
+    try {
+      const result = await callAuditGhostUsers({ dryRun: true })
+      setAuditResults(result.found)
+      if (result.totalFound === 0) {
+        setMsg({ type: 'ok', text: 'Auditoria concluída: nenhum problema encontrado. ✅' })
+      }
+    } catch {
+      setMsg({ type: 'err', text: 'Erro ao executar a auditoria de usuários.' })
+    } finally {
+      setAuditing(false)
+    }
+  }
+
+  async function handleRevokeAllOrphans() {
+    const orphans = (auditResults ?? []).filter((u) => u.issue === 'orphaned_claim')
+    if (orphans.length === 0) return
+    if (!confirm(`Revogar o acesso de ${orphans.length} conta(s) com claim órfão? Elas voltam a ser contas de cliente comum.`)) return
+    setAuditActing('revoke-all')
+    setMsg(null)
+    try {
+      const result = await callAuditGhostUsers({ dryRun: false, revokeOrphans: true })
+      setMsg({ type: 'ok', text: `${result.revoked.length} claim(s) revogado(s): ${result.revoked.join(', ')}` })
+      await handleRunAudit()
+    } catch {
+      setMsg({ type: 'err', text: 'Erro ao revogar claims.' })
+    } finally {
+      setAuditActing(null)
+    }
+  }
+
+  async function handleDeleteGhost(u: AuditedUser) {
+    if (!confirm(`Excluir permanentemente a conta ${u.email}? Esta ação é irreversível.`)) return
+    setAuditActing(u.uid)
+    setMsg(null)
+    try {
+      const result = await callAuditGhostUsers({ dryRun: false, deleteUids: [u.uid] })
+      if (result.deleted.length > 0) {
+        setMsg({ type: 'ok', text: `Conta ${u.email} excluída.` })
+        setAuditResults((prev) => (prev ?? []).filter((x) => x.uid !== u.uid))
+      } else {
+        setMsg({ type: 'err', text: 'A conta não foi excluída (não está mais sinalizada).' })
+      }
+    } catch {
+      setMsg({ type: 'err', text: 'Erro ao excluir conta.' })
+    } finally {
+      setAuditActing(null)
+    }
+  }
+
   function formatDate(iso: string) {
     if (!iso) return '—'
     return new Date(iso).toLocaleString('pt-BR', {
@@ -123,6 +192,85 @@ export default function RegistrosIncompletosPage() {
           {msg.text}
         </div>
       )}
+
+      {/* Auditoria geral de usuários */}
+      <section className="rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+          <div>
+            <h2 className="text-sm font-bold text-neutral-800">Auditoria geral de usuários</h2>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Varre todas as contas e detecta acessos órfãos (ex: entregador sem cadastro)
+              e contas fantasmas sem nenhuma atividade.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {auditResults && auditResults.some((u) => u.issue === 'orphaned_claim') && (
+              <button
+                onClick={handleRevokeAllOrphans}
+                disabled={auditActing === 'revoke-all'}
+                className="rounded-lg bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-40"
+              >
+                {auditActing === 'revoke-all' ? 'Revogando…' : 'Revogar claims órfãos'}
+              </button>
+            )}
+            <button
+              onClick={handleRunAudit}
+              disabled={auditing}
+              className="rounded-lg bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-40"
+            >
+              {auditing ? 'Analisando…' : auditResults ? 'Analisar novamente' : 'Analisar usuários'}
+            </button>
+          </div>
+        </div>
+
+        {auditResults && auditResults.length > 0 && (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-semibold text-neutral-500">
+                <th className="px-5 py-3">E-mail</th>
+                <th className="px-5 py-3">Acesso atual</th>
+                <th className="px-5 py-3">Problema</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {auditResults.map((u) => (
+                <tr key={u.uid} className="hover:bg-neutral-50">
+                  <td className="px-5 py-3 font-medium text-neutral-900">{u.email || u.uid}</td>
+                  <td className="px-5 py-3">
+                    <span className={[
+                      'rounded-full px-2 py-0.5 text-xs font-semibold',
+                      u.issue === 'orphaned_claim'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-neutral-100 text-neutral-500',
+                    ].join(' ')}>
+                      {ROLE_LABEL[u.role] ?? u.role}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-xs text-neutral-500">{u.detail}</td>
+                  <td className="px-5 py-3 text-right">
+                    {u.issue === 'ghost' && (
+                      <button
+                        onClick={() => handleDeleteGhost(u)}
+                        disabled={auditActing === u.uid}
+                        className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-40"
+                      >
+                        {auditActing === u.uid ? 'Excluindo…' : 'Excluir conta'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {auditResults && auditResults.length === 0 && (
+          <div className="py-8 text-center text-sm text-neutral-500">
+            Nenhum claim órfão ou conta fantasma encontrada. ✅
+          </div>
+        )}
+      </section>
 
       {/* Excluir por e-mail (para contas antigas sem marcador) */}
       <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">

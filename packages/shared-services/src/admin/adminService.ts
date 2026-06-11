@@ -105,6 +105,46 @@ export async function callAssignHortaManager(
   return result.data
 }
 
+// ── auditGhostUsers ─────────────────────────────────────
+
+export interface AuditedUser {
+  uid: string
+  email: string
+  name: string
+  role: string
+  createdAt: string
+  issue: 'orphaned_claim' | 'ghost'
+  detail: string
+}
+
+export interface AuditUsersResult {
+  found: AuditedUser[]
+  revoked: string[]
+  deleted: string[]
+  dryRun: boolean
+  totalFound: number
+}
+
+interface AuditUsersData {
+  dryRun?: boolean
+  revokeOrphans?: boolean
+  deleteUids?: string[]
+}
+
+const auditGhostUsersFn = httpsCallable<AuditUsersData, AuditUsersResult>(
+  functions,
+  'auditGhostUsers',
+)
+
+/**
+ * Auditoria geral de usuários (somente admins): detecta claims órfãos
+ * (role sem cadastro correspondente) e contas fantasmas (sem atividade).
+ */
+export async function callAuditGhostUsers(data: AuditUsersData): Promise<AuditUsersResult> {
+  const result = await auditGhostUsersFn(data)
+  return result.data
+}
+
 // ── generateAccessLink ──────────────────────────────────
 
 export interface AccessLinkResult {
