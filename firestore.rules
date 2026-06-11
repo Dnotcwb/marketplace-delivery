@@ -111,9 +111,20 @@ service cloud.firestore {
                        && isUnchanged('status')
                        && isUnchanged('commission')
                        && isUnchanged('approvedAt'))
+                    // Gestor de horta só vincula produtor livre à PRÓPRIA horta
+                    // ou desvincula produtor que está na PRÓPRIA horta.
                     || (isHortaManager()
                         && request.auth.token.hortaId is string
-                        && hasOnlyAllowedFields(['hortaId', 'updatedAt']))
+                        && hasOnlyAllowedFields(['hortaId', 'updatedAt'])
+                        && (
+                          (request.resource.data.hortaId == request.auth.token.hortaId
+                           && (!('hortaId' in resource.data)
+                               || resource.data.hortaId == null
+                               || resource.data.hortaId == request.auth.token.hortaId))
+                          || (request.resource.data.hortaId == null
+                              && 'hortaId' in resource.data
+                              && resource.data.hortaId == request.auth.token.hortaId)
+                        ))
                     || isAdmin();
 
       allow delete: if isAdmin();

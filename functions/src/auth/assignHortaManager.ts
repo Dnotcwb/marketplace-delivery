@@ -68,8 +68,10 @@ export const assignHortaManager = onCall<AssignData>(
     const currentClaims = userRecord.customClaims as Record<string, unknown> | null
     const currentRole = currentClaims?.['role'] as string | undefined
 
-    // Bloqueia roles que não podem ser alteradas por este fluxo
-    if (currentRole === 'admin' || currentRole === 'entregador') {
+    // Bloqueia roles que não podem ser alteradas por este fluxo.
+    // 'produtor' incluído: sobrescrever os claims aqui apagaria produtorIds
+    // e o usuário perderia o acesso ao app produtor silenciosamente.
+    if (currentRole === 'admin' || currentRole === 'entregador' || currentRole === 'produtor') {
       // Se acabou de criar o usuário, desfaz
       if (userCreated) {
         await admin.auth().deleteUser(uid).catch(() => {})
