@@ -178,6 +178,15 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "isOnline", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "driver_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driverUid", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

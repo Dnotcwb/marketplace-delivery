@@ -97,7 +97,11 @@ export async function callAssignHortaManager(
   hortaId: string,
   name?: string,
 ): Promise<AssignHortaManagerResult> {
-  const result = await assignHortaManagerFn({ email, hortaId, name })
+  const result = await assignHortaManagerFn({
+    email,
+    hortaId,
+    ...(name !== undefined && { name }),
+  })
   return result.data
 }
 
