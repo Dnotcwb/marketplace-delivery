@@ -215,7 +215,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const clearCart = useCallback(() => {
+    // Cancela qualquer save pendente e apaga o storage explicitamente.
+    // O efeito de save ignora o estado vazio (para não sobrescrever o carrinho
+    // antes da hidratação), então sem o removeItem abaixo o localStorage
+    // manteria os itens antigos e o carrinho "voltaria" após finalizar o pedido.
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     setState({ horta: null, items: [] })
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
   }, [])
 
   const openCart = useCallback(() => setIsOpen(true), [])
