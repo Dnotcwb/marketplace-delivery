@@ -445,7 +445,9 @@ export default function CheckoutPage() {
         })),
         deliveryAddress,
         paymentMethod,
-        ...(couponCode.trim() ? { couponCode: couponCode.trim() } : {}),
+        // Só envia o cupom validado e aplicado — o texto solto do input não
+        // entra no pedido (o total exibido deve bater com o cobrado).
+        ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
       })
 
       const result = res.data

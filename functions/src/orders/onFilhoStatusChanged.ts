@@ -58,6 +58,39 @@ export const onFilhoStatusChanged = onDocumentUpdated(
       return
     }
 
+    // ── Todos cancelados → pedido pai 'cancelled' ───────────────
+    // O estorno do pagamento NÃO é automático — fica a cargo do admin
+    // (não há refund via API do MP implementado).
+    if (newStatus === 'cancelado') {
+      const filhosSnap = await db
+        .collection('pedidos_filhos')
+        .where('pedidoPaiId', '==', pedidoPaiId)
+        .get()
+
+      const allCancelados = filhosSnap.docs.every(
+        (d) => d.data()['status'] === 'cancelado',
+      )
+      if (!allCancelados) return
+
+      const orderRef  = db.collection('orders').doc(pedidoPaiId)
+      const orderSnap = await orderRef.get()
+      if (!orderSnap.exists) return
+
+      const currentStatus = orderSnap.data()!['status'] as string
+      if (['cancelled', 'delivered', 'refunded'].includes(currentStatus)) return
+
+      await orderRef.update({
+        status: 'cancelled',
+        statusHistory: admin.firestore.FieldValue.arrayUnion({
+          status: 'cancelled',
+          timestamp: admin.firestore.Timestamp.now(),
+        }),
+        cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+      console.log(`onFilhoStatusChanged: todos os filhos cancelados — pedido ${pedidoPaiId} → 'cancelled'`)
+      return
+    }
+
     // ── Qualquer produtor marca 'retirado' → propaga a todos ────
     if (newStatus === 'retirado') {
       const filhosSnap = await db
