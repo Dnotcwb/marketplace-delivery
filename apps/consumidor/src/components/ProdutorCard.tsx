@@ -76,7 +76,16 @@ export default function ProdutorCard({ produtor }: Props) {
             )}
           </div>
           <div className="overflow-hidden">
-            <p className="truncate font-bold text-neutral-900">{produtor.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate font-bold text-neutral-900">{produtor.name}</p>
+              {produtor.ratingCount && produtor.ratingCount > 0 && produtor.ratingAvg ? (
+                <span className="flex flex-shrink-0 items-center gap-0.5 text-xs font-semibold text-amber-600">
+                  <span className="text-amber-400">★</span>
+                  {produtor.ratingAvg.toFixed(1)}
+                  <span className="font-normal text-neutral-400">({produtor.ratingCount})</span>
+                </span>
+              ) : null}
+            </div>
             <p className="truncate text-xs text-neutral-500">
               {produtor.address.neighborhood}, {produtor.address.city}
             </p>

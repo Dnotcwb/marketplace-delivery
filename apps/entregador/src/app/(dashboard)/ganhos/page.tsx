@@ -1,8 +1,10 @@
 'use client'
 
+import { firestore } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
 import type { Order } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { subscribeToDriverOrders } from '@/lib/orderSubscriptions'
 
@@ -24,12 +26,23 @@ export default function GanhosPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<Period>('30')
+  const [rating, setRating] = useState<{ avg: number; count: number } | null>(null)
 
   useEffect(() => {
     if (!user) return
     return subscribeToDriverOrders(user.uid, (list) => {
       setOrders(list)
       setLoading(false)
+    })
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    return onSnapshot(doc(firestore, 'deliveryDrivers', user.uid), (snap) => {
+      const d = snap.data()
+      const count = (d?.['ratingCount'] as number | undefined) ?? 0
+      const avg = d?.['ratingAvg'] as number | undefined
+      setRating(count > 0 && typeof avg === 'number' ? { avg, count } : null)
     })
   }, [user])
 
@@ -59,6 +72,22 @@ export default function GanhosPage() {
           <option value="90">Últimos 90 dias</option>
         </select>
       </div>
+
+      {/* Nota do entregador */}
+      {rating && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-2xl">⭐</div>
+          <div className="flex-1">
+            <p className="text-lg font-bold text-amber-900">
+              {rating.avg.toFixed(1)}
+              <span className="ml-1 text-sm font-normal text-amber-600">
+                / 5 · {rating.count} avaliação{rating.count !== 1 ? 'ões' : ''}
+              </span>
+            </p>
+            <p className="text-xs text-amber-700">Sua nota média com os clientes</p>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3">
