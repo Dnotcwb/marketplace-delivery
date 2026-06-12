@@ -30,13 +30,16 @@ export default function ProdutorGuard({ children }: { children: React.ReactNode 
     async function check() {
       setState('checking')
 
-      // 1. Força refresh do token antes de qualquer decisão
+      // 1. Só força refresh do token se ainda não tiver o role correto
+      //    (evita um round-trip de rede ao abrir o app já aprovado).
       let role: string | undefined = claims?.role
-      try {
-        const fresh = await user!.getIdTokenResult(true)
-        role = fresh.claims['role'] as string | undefined
-      } catch {
-        // Se o refresh falhar usa o claim já carregado
+      if (role !== 'produtor') {
+        try {
+          const fresh = await user!.getIdTokenResult(true)
+          role = fresh.claims['role'] as string | undefined
+        } catch {
+          // Se o refresh falhar usa o claim já carregado
+        }
       }
 
       // 2. Outro role que não pertence a este app

@@ -1,6 +1,12 @@
 import { getApps, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { connectStorageEmulator, getStorage } from 'firebase/storage'
 
@@ -16,7 +22,32 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]!
 
 export const auth = getAuth(app)
-export const firestore = getFirestore(app)
+
+/**
+ * Firestore com **cache local persistente (IndexedDB)** no navegador.
+ *
+ * Por quê: sem cache, cada `onSnapshot` ao trocar de tela re-baixa a coleção
+ * da rede (spinner a cada navegação). Com o cache persistente, o snapshot é
+ * servido instantaneamente do IndexedDB e a rede só revalida em segundo plano
+ * — a navegação entre telas fica imediata. `persistentMultipleTabManager`
+ * compartilha o cache entre abas sem conflito.
+ *
+ * No servidor (SSR) não há IndexedDB → usa `getFirestore` padrão.
+ * O try/catch protege contra reinicialização em hot-reload (HMR).
+ */
+function initFirestore() {
+  if (typeof window === 'undefined') return getFirestore(app)
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    })
+  } catch {
+    // Já inicializado nesta sessão (HMR) — reaproveita a instância existente.
+    return getFirestore(app)
+  }
+}
+
+export const firestore = initFirestore()
 export const storage = getStorage(app)
 export const functions = getFunctions(app, 'southamerica-east1')
 

@@ -57,12 +57,13 @@ export function subscribeToProdutorOrders(
   })
 }
 
-/** Listener em todos os pedidos (backoffice). */
+/** Listener em todos os pedidos (backoffice). Limitado para não baixar a coleção inteira. */
 export function subscribeToAllOrders(
   callback: (orders: Order[]) => void,
   onError?: (err: Error) => void,
+  maxCount = 800,
 ): Unsubscribe {
-  const q = query(collection(firestore, COL), orderBy('createdAt', 'desc'))
+  const q = query(collection(firestore, COL), orderBy('createdAt', 'desc'), limit(maxCount))
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)),

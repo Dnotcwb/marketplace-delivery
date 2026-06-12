@@ -50,12 +50,16 @@ export default function HortaGuard({ children }: { children: React.ReactNode }) 
       let role: string | undefined = claims?.role as string | undefined
       let resolvedHortaId: string | undefined = (claims as unknown as Record<string, unknown>)?.['hortaId'] as string | undefined
 
-      try {
-        const fresh = await user!.getIdTokenResult(true)
-        role = fresh.claims['role'] as string | undefined
-        resolvedHortaId = fresh.claims['hortaId'] as string | undefined
-      } catch {
-        // usa claims em cache se o refresh falhar
+      // Só força refresh do token se ainda não tivermos role+hortaId resolvidos
+      // (evita um round-trip de rede ao abrir o app já vinculado).
+      if (role !== 'horta' || !resolvedHortaId) {
+        try {
+          const fresh = await user!.getIdTokenResult(true)
+          role = fresh.claims['role'] as string | undefined
+          resolvedHortaId = fresh.claims['hortaId'] as string | undefined
+        } catch {
+          // usa claims em cache se o refresh falhar
+        }
       }
 
       if (role !== 'horta') {
