@@ -4,10 +4,10 @@ import {
   callSetUserRole,
   deleteProdutor,
   setProdutorStatus,
-  subscribeToAllProdutores,
 } from '@marketplace/shared-services'
 import type { Produtor, ProdutorStatus } from '@marketplace/shared-types'
 import { useAuth } from '@marketplace/shared-services'
+import { useAdminData } from '@/components/AdminDataProvider'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -156,19 +156,11 @@ export default function ProdutoresAdminPage() {
     (searchParams.get('tab') as Tab | null) ?? 'pending',
   )
 
-  const [allProdutores, setAllProdutores] = useState<Produtor[]>([])
-  const [loading, setLoading] = useState(true)
+  const { produtores: allProdutores, loading } = useAdminData()
   const [actionId, setActionId] = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<Produtor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Produtor | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    return subscribeToAllProdutores((list) => {
-      setAllProdutores(list)
-      setLoading(false)
-    })
-  }, [])
 
   useEffect(() => {
     const tab = searchParams.get('tab') as Tab | null

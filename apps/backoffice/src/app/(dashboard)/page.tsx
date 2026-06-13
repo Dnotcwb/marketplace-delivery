@@ -1,12 +1,12 @@
 'use client'
 
-import { subscribeToAllOrders, subscribeToAllProdutores } from '@marketplace/shared-services'
-import type { Order, OrderStatus, Produtor } from '@marketplace/shared-types'
+import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { Timestamp } from 'firebase/firestore'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useAdminData } from '@/components/AdminDataProvider'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -99,28 +99,7 @@ function KpiCard({
 // ─── page ──────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [produtores, setProdutores] = useState<Produtor[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let ordersReady = false
-    let produtoresReady = false
-
-    const unsubOrders = subscribeToAllOrders((list) => {
-      setOrders(list)
-      ordersReady = true
-      if (produtoresReady) setLoading(false)
-    })
-
-    const unsubProd = subscribeToAllProdutores((list) => {
-      setProdutores(list)
-      produtoresReady = true
-      if (ordersReady) setLoading(false)
-    })
-
-    return () => { unsubOrders(); unsubProd() }
-  }, [])
+  const { orders, produtores, loading } = useAdminData()
 
   // ── computed ──────────────────────────────────────────────────────────────
 

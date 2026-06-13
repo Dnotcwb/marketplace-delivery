@@ -1,10 +1,10 @@
 'use client'
 
-import { subscribeToAllOrders } from '@marketplace/shared-services'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useAdminData } from '@/components/AdminDataProvider'
 
 type Period = '7' | '30' | '90'
 
@@ -149,16 +149,8 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 export default function RelatoriosPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+  const { orders, loading } = useAdminData()
   const [period, setPeriod] = useState<Period>('30')
-
-  useEffect(() => {
-    return subscribeToAllOrders((list) => {
-      setOrders(list)
-      setLoading(false)
-    })
-  }, [])
 
   const days = Number(period)
 

@@ -1,12 +1,12 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
-import { subscribeToAllOrders } from '@marketplace/shared-services'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { doc, updateDoc, arrayUnion, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useAdminData } from '@/components/AdminDataProvider'
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   pending:     'bg-yellow-100 text-yellow-800',
@@ -86,30 +86,9 @@ async function cancelOrder(order: Order) {
 }
 
 export default function PedidosPage() {
-  const [orders, setOrders] = useState<Order[]>([])
+  const { orders, loading, ordersError: subscriptionError } = useAdminData()
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const unsub = subscribeToAllOrders(
-      (list) => {
-        setOrders(list)
-        setLoading(false)
-        setSubscriptionError(null)
-      },
-      (err) => {
-        const code = (err as { code?: string }).code ?? ''
-        const msg = code === 'permission-denied'
-          ? 'Sem permissão para listar pedidos. Verifique se seu token está atualizado e recarregue.'
-          : `Erro na subscription de pedidos (${code || err.message}). Recarregue a página.`
-        setSubscriptionError(msg)
-        setLoading(false)
-      },
-    )
-    return unsub
-  }, [])
 
   const filtered = orders.filter((o) => {
     if (filter !== 'all' && o.status !== filter) return false

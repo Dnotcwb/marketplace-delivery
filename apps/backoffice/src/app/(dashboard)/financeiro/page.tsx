@@ -1,14 +1,11 @@
 'use client'
 
-import {
-  marcarTodosRepassesPagos,
-  subscribeToAllOrders,
-  subscribeToAllPedidosFilhos,
-} from '@marketplace/shared-services'
+import { marcarTodosRepassesPagos } from '@marketplace/shared-services'
 import type { Order, OrderStatus, PedidoFilho } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { Timestamp } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useAdminData } from '@/components/AdminDataProvider'
 
 const COMPLETED: OrderStatus[] = ['confirmed', 'accepted', 'preparing', 'ready', 'on_delivery', 'delivered']
 
@@ -350,23 +347,9 @@ function TabRepassos({ filhos, loading }: { filhos: PedidoFilho[]; loading: bool
 // ──────────────────────────────────────────────────────
 
 export default function FinanceiroPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [filhos, setFilhos] = useState<PedidoFilho[]>([])
-  const [loading, setLoading] = useState(true)
+  const { orders, pedidosFilhos: filhos, loading } = useAdminData()
   const [activeTab, setActiveTab] = useState<Tab>('faturamento')
   const [period, setPeriod] = useState<Period>('30')
-
-  useEffect(() => {
-    const unsubOrders = subscribeToAllOrders((list) => {
-      setOrders(list)
-      setLoading(false)
-    })
-    const unsubFilhos = subscribeToAllPedidosFilhos(setFilhos)
-    return () => {
-      unsubOrders()
-      unsubFilhos()
-    }
-  }, [])
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'faturamento', label: 'Faturamento' },
