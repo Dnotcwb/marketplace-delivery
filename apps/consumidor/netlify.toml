@@ -5,3 +5,7 @@
 [build.environment]
   NODE_VERSION = "22"
   PNPM_VERSION = "11"
+
+# Função agendada de keep-warm (ping nos 5 apps a cada 5 min) — só este site a deploya
+[functions]
+  directory = "apps/consumidor/netlify/functions"
