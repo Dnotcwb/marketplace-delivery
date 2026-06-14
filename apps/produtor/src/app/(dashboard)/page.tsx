@@ -43,6 +43,7 @@ export default function DashboardPage() {
 
     const todayTs = startOfToday()
 
+    // Dashboard só precisa do recente (stats do dia + ativos) — limita o download.
     const unsub = subscribeToPedidoFilhos(produtor.id, (filhos) => {
       const todayFilhos = filhos.filter((f) => {
         const ts = f.createdAt as unknown as { seconds: number }
@@ -74,7 +75,7 @@ export default function DashboardPage() {
         pedidosAtivos,
       })
       setStatsLoading(false)
-    })
+    }, 200)
 
     return unsub
   }, [prodLoading, produtor])

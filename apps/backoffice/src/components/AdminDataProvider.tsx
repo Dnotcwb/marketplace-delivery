@@ -2,20 +2,16 @@
 
 import {
   subscribeToAllOrders,
-  subscribeToAllPedidosFilhos,
   subscribeToAllProdutores,
 } from '@marketplace/shared-services'
-import type { Order, PedidoFilho, Produtor } from '@marketplace/shared-types'
+import type { Order, Produtor } from '@marketplace/shared-types'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 interface AdminDataValue {
   orders: Order[]
   produtores: Produtor[]
-  pedidosFilhos: PedidoFilho[]
   /** true até orders + produtores carregarem pela primeira vez */
   loading: boolean
-  /** true até os pedidos filhos carregarem pela primeira vez */
-  filhosLoading: boolean
   /** mensagem de erro da subscription de pedidos (ex: permissão), se houver */
   ordersError: string | null
 }
@@ -23,19 +19,20 @@ interface AdminDataValue {
 const AdminDataContext = createContext<AdminDataValue | null>(null)
 
 /**
- * Mantém as assinaturas pesadas do admin (pedidos, produtores, pedidos filhos)
- * vivas no nível do layout. Como o provider fica montado durante toda a sessão
- * do dashboard, navegar entre Dashboard / Pedidos / Financeiro / Relatórios /
- * Produtores reaproveita os mesmos dados — sem re-assinar nem re-renderizar
- * spinner a cada troca de tela.
+ * Mantém as assinaturas compartilhadas do admin (pedidos + produtores) vivas no
+ * nível do layout. Como o provider fica montado durante toda a sessão do
+ * dashboard, navegar entre Dashboard / Pedidos / Relatórios / Produtores
+ * reaproveita os mesmos dados — sem re-assinar nem mostrar spinner a cada troca.
+ *
+ * `pedidos_filhos` NÃO entra aqui de propósito: só o Financeiro usa, é uma
+ * coleção grande, e baixá-la no acesso ao Dashboard tornava a entrada lenta.
+ * O Financeiro assina por conta própria quando é aberto.
  */
 export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([])
   const [produtores, setProdutores] = useState<Produtor[]>([])
-  const [pedidosFilhos, setPedidosFilhos] = useState<PedidoFilho[]>([])
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [produtoresLoaded, setProdutoresLoaded] = useState(false)
-  const [filhosLoaded, setFilhosLoaded] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,14 +56,9 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       setProdutores(list)
       setProdutoresLoaded(true)
     })
-    const unsubFilhos = subscribeToAllPedidosFilhos((list) => {
-      setPedidosFilhos(list)
-      setFilhosLoaded(true)
-    })
     return () => {
       unsubOrders()
       unsubProd()
-      unsubFilhos()
     }
   }, [])
 
@@ -74,12 +66,10 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     () => ({
       orders,
       produtores,
-      pedidosFilhos,
       loading: !(ordersLoaded && produtoresLoaded),
-      filhosLoading: !filhosLoaded,
       ordersError,
     }),
-    [orders, produtores, pedidosFilhos, ordersLoaded, produtoresLoaded, filhosLoaded, ordersError],
+    [orders, produtores, ordersLoaded, produtoresLoaded, ordersError],
   )
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>

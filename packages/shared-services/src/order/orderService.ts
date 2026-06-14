@@ -74,16 +74,19 @@ export function subscribeToAllOrders(
   )
 }
 
-/** Listener nos PedidoFilho de um produtor (app produtor — novo modelo). */
+/** Listener nos PedidoFilho de um produtor (app produtor — novo modelo).
+ *  `maxCount` limita o download (ex.: dashboard só precisa dos mais recentes). */
 export function subscribeToPedidoFilhos(
   produtorId: string,
   callback: (filhos: PedidoFilho[]) => void,
+  maxCount?: number,
 ): Unsubscribe {
-  const q = query(
+  const base = [
     collection(firestore, FILHOS_COL),
     where('produtorId', '==', produtorId),
     orderBy('createdAt', 'desc'),
-  )
+  ] as const
+  const q = maxCount ? query(...base, limit(maxCount)) : query(...base)
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PedidoFilho))
   })

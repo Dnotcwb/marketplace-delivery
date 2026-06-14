@@ -1,10 +1,10 @@
 'use client'
 
-import { marcarTodosRepassesPagos } from '@marketplace/shared-services'
+import { marcarTodosRepassesPagos, subscribeToAllPedidosFilhos } from '@marketplace/shared-services'
 import type { Order, OrderStatus, PedidoFilho } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { Timestamp } from 'firebase/firestore'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAdminData } from '@/components/AdminDataProvider'
 
 const COMPLETED: OrderStatus[] = ['confirmed', 'accepted', 'preparing', 'ready', 'on_delivery', 'delivered']
@@ -347,9 +347,14 @@ function TabRepassos({ filhos, loading }: { filhos: PedidoFilho[]; loading: bool
 // ──────────────────────────────────────────────────────
 
 export default function FinanceiroPage() {
-  const { orders, pedidosFilhos: filhos, loading } = useAdminData()
+  const { orders, loading } = useAdminData()
+  const [filhos, setFilhos] = useState<PedidoFilho[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('faturamento')
   const [period, setPeriod] = useState<Period>('30')
+
+  // pedidos_filhos só é necessário aqui — assina ao abrir o Financeiro,
+  // mantendo o acesso ao Dashboard leve.
+  useEffect(() => subscribeToAllPedidosFilhos(setFilhos), [])
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'faturamento', label: 'Faturamento' },
