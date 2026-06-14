@@ -91,6 +91,7 @@ async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | n
 }
 
 const WEBHOOK_URL =
+  process.env['MP_WEBHOOK_URL'] ??
   'https://southamerica-east1-marketplace-delivery-dev.cloudfunctions.net/mercadoPagoWebhook'
 
 const CONSUMIDOR_URL =
@@ -526,7 +527,8 @@ export const createOrder = onCall(
         return {
           orderId,
           paymentMethod: 'credit_card',
-          mpPreferenceUrl: pref.sandbox_init_point ?? pref.init_point ?? '',
+          // init_point = produção; sandbox_init_point só existe com credenciais de teste
+          mpPreferenceUrl: pref.init_point ?? pref.sandbox_init_point ?? '',
           total: totalInCents,
         }
       }
