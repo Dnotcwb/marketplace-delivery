@@ -12,7 +12,7 @@ import {
 import type { Produtor } from '@marketplace/shared-types'
 import HortaCatalog from '@/components/HortaCatalog'
 
-export const revalidate = 60
+export const revalidate = 300
 export const dynamicParams = true
 
 const getHorta = cache(async (slug: string) => getHortaBySlug(slug))

@@ -1,7 +1,7 @@
 import { listHortasAtivas, listProdutoresAprovados } from '@marketplace/shared-services'
 import HomeContent from '@/components/HomeContent'
 
-export const revalidate = 60
+export const revalidate = 300
 
 export const metadata = {
   title: 'Hortas e produtores perto de você',

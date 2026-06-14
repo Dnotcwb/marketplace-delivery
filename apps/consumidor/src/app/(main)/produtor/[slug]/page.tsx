@@ -14,7 +14,7 @@ import {
 import type { ProdutorCertification } from '@marketplace/shared-types'
 import ProdutorCatalog from '@/components/ProdutorCatalog'
 
-export const revalidate = 60
+export const revalidate = 300
 export const dynamicParams = true
 
 const CERT_LABELS: Record<ProdutorCertification, string> = {
