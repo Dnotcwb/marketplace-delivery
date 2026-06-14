@@ -1,11 +1,9 @@
 'use client'
 
-import { useAuth } from '@marketplace/shared-services'
-import type { Order, OrderStatus } from '@marketplace/shared-types'
+import type { OrderStatus } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { Timestamp } from 'firebase/firestore'
-import { useEffect, useState } from 'react'
-import { subscribeToDriverOrders } from '@/lib/orderSubscriptions'
+import { useDriverData } from '@/components/DriverDataProvider'
 
 const STATUS_LABELS: Partial<Record<OrderStatus, { label: string; cls: string }>> = {
   delivered:  { label: 'Entregue',   cls: 'bg-emerald-100 text-emerald-700' },
@@ -23,17 +21,7 @@ function fmtDate(ts: unknown): string {
 }
 
 export default function HistoricoPage() {
-  const { user } = useAuth()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!user) return
-    return subscribeToDriverOrders(user.uid, (list) => {
-      setOrders(list)
-      setLoading(false)
-    })
-  }, [user])
+  const { driverOrders: orders, ordersLoading: loading } = useDriverData()
 
   const completed = orders.filter((o) => o.status !== 'on_delivery')
 

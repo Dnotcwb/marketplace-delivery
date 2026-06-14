@@ -1,12 +1,9 @@
 'use client'
 
-import { firestore } from '@marketplace/shared-firebase'
-import { useAuth } from '@marketplace/shared-services'
 import type { Order } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from 'react'
-import { subscribeToDriverOrders } from '@/lib/orderSubscriptions'
+import { useMemo, useState } from 'react'
+import { useDriverData } from '@/components/DriverDataProvider'
 
 type Period = '7' | '30' | '90'
 
@@ -22,29 +19,8 @@ function orderSeconds(o: Order): number {
 }
 
 export default function GanhosPage() {
-  const { user } = useAuth()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+  const { driverOrders: orders, ordersLoading: loading, rating } = useDriverData()
   const [period, setPeriod] = useState<Period>('30')
-  const [rating, setRating] = useState<{ avg: number; count: number } | null>(null)
-
-  useEffect(() => {
-    if (!user) return
-    return subscribeToDriverOrders(user.uid, (list) => {
-      setOrders(list)
-      setLoading(false)
-    })
-  }, [user])
-
-  useEffect(() => {
-    if (!user) return
-    return onSnapshot(doc(firestore, 'deliveryDrivers', user.uid), (snap) => {
-      const d = snap.data()
-      const count = (d?.['ratingCount'] as number | undefined) ?? 0
-      const avg = d?.['ratingAvg'] as number | undefined
-      setRating(count > 0 && typeof avg === 'number' ? { avg, count } : null)
-    })
-  }, [user])
 
   const delivered = orders.filter((o) => o.status === 'delivered')
 

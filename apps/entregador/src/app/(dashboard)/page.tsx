@@ -2,12 +2,13 @@
 
 import { firestore, functions } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
-import type { DeliveryDriver, Order } from '@marketplace/shared-types'
+import type { Order } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
-import { doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useEffect, useState } from 'react'
-import { subscribeToDriverOrders, subscribeToReadyOrders } from '@/lib/orderSubscriptions'
+import { subscribeToReadyOrders } from '@/lib/orderSubscriptions'
+import { useDriverData } from '@/components/DriverDataProvider'
 
 const acceptDeliveryFn = httpsCallable<{ orderId: string }, { success: boolean }>(
   functions,
@@ -16,66 +17,33 @@ const acceptDeliveryFn = httpsCallable<{ orderId: string }, { success: boolean }
 
 export default function HomePage() {
   const { user } = useAuth()
-  const [driver, setDriver] = useState<DeliveryDriver | null>(null)
+  const { driver, driverOrders, ordersLoading } = useDriverData()
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
-  const [driverOrders, setDriverOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+  const [readyLoading, setReadyLoading] = useState(true)
   const [accepting, setAccepting] = useState<string | null>(null)
   const [togglingOnline, setTogglingOnline] = useState(false)
   const [error, setError] = useState('')
   const [permissionError, setPermissionError] = useState(false)
   const [queryError, setQueryError] = useState('')
 
-  // Subscreve o perfil do entregador para obter isOnline em tempo real
+  const loading = readyLoading || ordersLoading
+
+  // Entregas disponíveis (status 'ready') — exclusivo do dashboard
   useEffect(() => {
     if (!user) return
-    return onSnapshot(doc(firestore, 'deliveryDrivers', user.uid), (snap) => {
-      setDriver(snap.exists() ? (snap.data() as DeliveryDriver) : null)
-    })
-  }, [user?.uid])
-
-  useEffect(() => {
-    if (!user) return
-    let readyLoaded = false
-    let driverLoaded = false
-
-    function trySetLoaded() {
-      if (readyLoaded && driverLoaded) setLoading(false)
-    }
-
-    const unsubReady = subscribeToReadyOrders(
+    return subscribeToReadyOrders(
       (orders) => {
         setReadyOrders(orders)
-        readyLoaded = true
-        trySetLoaded()
+        setReadyLoading(false)
       },
       (err) => {
         const code = (err as { code?: string }).code
         if (code === 'permission-denied') setPermissionError(true)
         else setQueryError(`Erro ao carregar entregas (${code ?? err.message})`)
-        readyLoaded = true
-        trySetLoaded()
+        setReadyLoading(false)
       },
     )
-
-    const unsubDriver = subscribeToDriverOrders(
-      user.uid,
-      (orders) => {
-        setDriverOrders(orders)
-        driverLoaded = true
-        trySetLoaded()
-      },
-      (err) => {
-        const code = (err as { code?: string }).code
-        if (code === 'permission-denied') setPermissionError(true)
-        else setQueryError((prev) => prev || `Erro ao carregar entregas (${code ?? err.message})`)
-        driverLoaded = true
-        trySetLoaded()
-      },
-    )
-
-    return () => { unsubReady(); unsubDriver() }
-  }, [user?.uid])
+  }, [user?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isOnline = driver?.isOnline ?? false
   const activeDelivery = driverOrders.find((o) => o.status === 'on_delivery')
