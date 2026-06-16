@@ -107,10 +107,15 @@ export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 
 export interface Payment {
   method: PaymentMethod
   status: PaymentStatus
+  /** ID do recurso MP criado no checkout (payment id no PIX, preference id no cartão) */
   externalId?: string
+  /** ID real do pagamento no Mercado Pago (gravado pelo webhook) — usado para estorno */
+  mpPaymentId?: string
   pixQrCodeBase64?: string
   pixQrCode?: string
   paidAt?: Timestamp
+  /** Quando o estorno foi processado */
+  refundedAt?: Timestamp
 }
 
 // ──────────────────────────────────────────────────────

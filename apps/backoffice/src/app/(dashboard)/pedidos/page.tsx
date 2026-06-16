@@ -1,6 +1,7 @@
 'use client'
 
 import { firestore } from '@marketplace/shared-firebase'
+import { callRefundOrder } from '@marketplace/shared-services'
 import type { Order, OrderStatus } from '@marketplace/shared-types'
 import { ORDER_STATUS_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
@@ -85,10 +86,26 @@ async function cancelOrder(order: Order) {
   })
 }
 
+async function refundOrder(order: Order, setRefundingId: (id: string | null) => void) {
+  if (!confirm(`Estornar o pagamento do pedido #${order.id.slice(0, 8)}? Esta ação não pode ser desfeita.`)) return
+  setRefundingId(order.id)
+  try {
+    const result = await callRefundOrder(order.id)
+    if (!result.ok) {
+      alert(`Não foi possível estornar (${result.reason ?? 'erro desconhecido'}).`)
+    }
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Erro ao processar o estorno.')
+  } finally {
+    setRefundingId(null)
+  }
+}
+
 export default function PedidosPage() {
   const { orders, loading, ordersError: subscriptionError } = useAdminData()
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [search, setSearch] = useState('')
+  const [refundingId, setRefundingId] = useState<string | null>(null)
 
   const filtered = orders.filter((o) => {
     if (filter !== 'all' && o.status !== filter) return false
@@ -108,6 +125,8 @@ export default function PedidosPage() {
 
   const canCancel = (o: Order) =>
     !['delivered', 'cancelled', 'refunded'].includes(o.status)
+
+  const canRefund = (o: Order) => o.payment.status === 'approved'
 
   const nextStatusLabel = (o: Order): string => {
     const idx = STATUS_SEQUENCE.indexOf(o.status as OrderStatus)
@@ -236,6 +255,16 @@ export default function PedidosPage() {
                           className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                         >
                           Cancelar
+                        </button>
+                      )}
+                      {canRefund(order) && (
+                        <button
+                          type="button"
+                          disabled={refundingId === order.id}
+                          onClick={() => refundOrder(order, setRefundingId)}
+                          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 disabled:opacity-50"
+                        >
+                          {refundingId === order.id ? 'Estornando…' : 'Estornar'}
                         </button>
                       )}
                     </div>

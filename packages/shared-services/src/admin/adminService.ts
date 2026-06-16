@@ -105,6 +105,19 @@ export async function callAssignHortaManager(
   return result.data
 }
 
+// ── refundOrder ─────────────────────────────────────────
+
+const refundOrderFn = httpsCallable<{ orderId: string }, { ok: boolean; reason?: string }>(
+  functions,
+  'refundOrder',
+)
+
+/** Estorna o pagamento de um pedido no Mercado Pago (somente admins). */
+export async function callRefundOrder(orderId: string): Promise<{ ok: boolean; reason?: string }> {
+  const result = await refundOrderFn({ orderId })
+  return result.data
+}
+
 // ── auditGhostUsers ─────────────────────────────────────
 
 export interface AuditedUser {

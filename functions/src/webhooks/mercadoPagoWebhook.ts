@@ -112,6 +112,9 @@ export const mercadoPagoWebhook = onRequest(
         await orderRef.update({
           status: 'confirmed',
           'payment.status': 'approved',
+          // ID real do pagamento — necessário para estornar depois (no cartão,
+          // externalId é o id da preference, não do pagamento).
+          'payment.mpPaymentId': String(mpPayment.id),
           'payment.paidAt': FieldValue.serverTimestamp(),
           statusHistory: FieldValue.arrayUnion({ status: 'confirmed', timestamp: tsNow }),
           confirmedAt: FieldValue.serverTimestamp(),
