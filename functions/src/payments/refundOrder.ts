@@ -2,7 +2,9 @@ import * as admin from 'firebase-admin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { MercadoPagoConfig, PaymentRefund } from 'mercadopago'
+import { getStripe } from './stripeClient'
+
+const REGION = 'southamerica-east1'
 
 type FirestoreDb = FirebaseFirestore.Firestore
 
@@ -12,13 +14,12 @@ interface RefundResult {
 }
 
 /**
- * Estorna o pagamento de um pedido no Mercado Pago e marca o pedido como
- * 'refunded'. Idempotente: se já estiver estornado ou não houver pagamento
- * aprovado, não faz nada.
+ * Estorna o pagamento de um pedido no Stripe e marca o pedido como 'refunded'.
+ * Idempotente: se já estiver estornado ou não houver pagamento aprovado, não faz nada.
  *
- * Modelo atual (plataforma recebe e repassa): o pagamento está na conta da
- * plataforma, então usa o token da plataforma. Se um dia houver split por
- * produtor, o estorno precisará usar o token do produtor (mp_tokens).
+ * Como o modelo é "separate charges and transfers", primeiro revertemos os
+ * transfers feitos aos produtores (puxando o dinheiro de volta) e depois
+ * reembolsamos o consumidor pelo PaymentIntent.
  */
 async function processRefund(db: FirestoreDb, orderId: string): Promise<RefundResult> {
   const orderRef = db.collection('orders').doc(orderId)
@@ -31,15 +32,37 @@ async function processRefund(db: FirestoreDb, orderId: string): Promise<RefundRe
   if (payment['status'] === 'refunded') return { ok: true, reason: 'already_refunded' }
   if (payment['status'] !== 'approved') return { ok: false, reason: 'not_paid' }
 
-  const paymentId = (payment['mpPaymentId'] as string | undefined) ?? (payment['externalId'] as string | undefined)
-  if (!paymentId) return { ok: false, reason: 'no_payment_id' }
+  const paymentIntentId = payment['stripePaymentIntentId'] as string | undefined
+  if (!paymentIntentId) return { ok: false, reason: 'no_payment_intent' }
 
-  const token = process.env['MERCADO_PAGO_ACCESS_TOKEN']
-  if (!token) return { ok: false, reason: 'mp_not_configured' }
+  const stripe = getStripe()
 
-  const client = new MercadoPagoConfig({ accessToken: token })
-  // Refund total do pagamento
-  await new PaymentRefund(client).create({ payment_id: Number(paymentId) })
+  // 1. Reverte os transfers de cada produtor (devolve o repasse à plataforma).
+  const filhosSnap = await db
+    .collection('pedidos_filhos')
+    .where('pedidoPaiId', '==', orderId)
+    .get()
+
+  for (const filhoDoc of filhosSnap.docs) {
+    const filho = filhoDoc.data()
+    const transferId = filho['transferId'] as string | undefined
+    if (!transferId) continue
+    try {
+      await stripe.transfers.createReversal(transferId, {
+        metadata: { orderId, pedidoFilhoId: filhoDoc.id, reason: 'refund' },
+      })
+      await filhoDoc.ref.update({
+        repassePago: false,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    } catch (err) {
+      console.error('processRefund: falha ao reverter transfer', transferId, err)
+      // Continua: o reembolso ao cliente ainda deve ser tentado.
+    }
+  }
+
+  // 2. Reembolsa o consumidor.
+  await stripe.refunds.create({ payment_intent: paymentIntentId })
 
   await orderRef.update({
     status: 'refunded',
@@ -48,7 +71,7 @@ async function processRefund(db: FirestoreDb, orderId: string): Promise<RefundRe
     statusHistory: FieldValue.arrayUnion({ status: 'refunded', timestamp: Timestamp.now() }),
   })
 
-  console.log(`processRefund: pedido ${orderId} estornado (payment ${paymentId})`)
+  console.log(`processRefund: pedido ${orderId} estornado (PaymentIntent ${paymentIntentId})`)
   return { ok: true }
 }
 
@@ -56,7 +79,7 @@ async function processRefund(db: FirestoreDb, orderId: string): Promise<RefundRe
  * Estorno manual disparado pelo admin (botão no backoffice).
  */
 export const refundOrder = onCall(
-  { region: 'southamerica-east1', secrets: ['MERCADO_PAGO_ACCESS_TOKEN'] },
+  { region: REGION, secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     if (request.auth?.token['role'] !== 'admin') {
       throw new HttpsError('permission-denied', 'Apenas administradores podem estornar.')
@@ -69,7 +92,7 @@ export const refundOrder = onCall(
       result = await processRefund(admin.firestore(), orderId)
     } catch (err) {
       console.error('refundOrder: falha no estorno do pedido', orderId, err)
-      throw new HttpsError('internal', 'Não foi possível processar o estorno no Mercado Pago.')
+      throw new HttpsError('internal', 'Não foi possível processar o estorno no Stripe.')
     }
 
     if (!result.ok && result.reason === 'not_paid') {
@@ -98,7 +121,7 @@ export const refundOrder = onCall(
  * pedidos filhos (onFilhoStatusChanged).
  */
 export const onOrderRefundOnCancel = onDocumentUpdated(
-  { document: 'orders/{orderId}', region: 'southamerica-east1', secrets: ['MERCADO_PAGO_ACCESS_TOKEN'] },
+  { document: 'orders/{orderId}', region: REGION, secrets: ['STRIPE_SECRET_KEY'] },
   async (event) => {
     const before = event.data?.before.data()
     const after = event.data?.after.data()

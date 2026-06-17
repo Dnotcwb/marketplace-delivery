@@ -1,0 +1,16 @@
+{
+  "name": "stripe-split-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prova de conceito isolada: split automático de 1 pagamento entre vários produtores via Stripe Connect (modo teste). Não faz parte do monorepo.",
+  "scripts": {
+    "setup": "node --env-file=.env split-poc.mjs setup",
+    "status": "node --env-file=.env split-poc.mjs status",
+    "split": "node --env-file=.env split-poc.mjs split",
+    "pix": "node --env-file=.env split-poc.mjs pix"
+  },
+  "dependencies": {
+    "stripe": "latest"
+  }
+}

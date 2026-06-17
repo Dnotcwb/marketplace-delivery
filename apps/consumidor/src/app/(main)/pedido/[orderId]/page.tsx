@@ -12,7 +12,6 @@ import type { DriverReview, Order, OrderStatus, Review, ReviewRating } from '@ma
 import { ORDER_STATUS_LABELS, PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, Timestamp, updateDoc, where } from 'firebase/firestore'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -63,7 +62,6 @@ export default function PedidoPage() {
 
   const [order, setOrder] = useState<Order | null | undefined>(undefined)
   const [firestoreError, setFirestoreError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -216,8 +214,7 @@ export default function PedidoPage() {
 
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded'
   const currentIdx = STATUS_SEQUENCE.indexOf(order.status)
-  const isPix = order.payment?.method === 'pix'
-  const pixPending = isPix && order.payment?.status === 'pending'
+  const paymentPending = order.payment?.status === 'pending' && order.status === 'pending'
 
   const canCancel = order !== null && order !== undefined
     && ['pending', 'confirmed'].includes(order.status)
@@ -285,14 +282,6 @@ export default function PedidoPage() {
     }
   }
 
-  function handleCopyPix() {
-    const code = order?.payment?.pixQrCode
-    if (!code) return
-    navigator.clipboard.writeText(code).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 3000)
-    })
-  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -365,30 +354,16 @@ export default function PedidoPage() {
         </span>
       </div>
 
-      {/* PIX pendente */}
-      {pixPending && order.payment?.pixQrCode && (
+      {/* Pagamento pendente */}
+      {paymentPending && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
-          <p className="mb-3 text-sm font-semibold text-amber-800">
-            Aguardando pagamento via PIX
+          <p className="mb-1 text-sm font-semibold text-amber-800">
+            Aguardando confirmação do pagamento
           </p>
-          {order.payment.pixQrCodeBase64 && (
-            <div className="mb-3 flex justify-center">
-              <Image
-                src={`data:image/png;base64,${order.payment.pixQrCodeBase64}`}
-                alt="QR Code PIX"
-                width={180}
-                height={180}
-                className="rounded-xl"
-                unoptimized
-              />
-            </div>
-          )}
-          <button
-            onClick={handleCopyPix}
-            className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white hover:bg-amber-600"
-          >
-            {copied ? '✓ Copiado!' : 'Copiar código PIX'}
-          </button>
+          <p className="text-xs text-amber-700">
+            Assim que o pagamento for confirmado, seu pedido avança automaticamente. Se você
+            fechou a página de pagamento sem concluir, faça um novo pedido.
+          </p>
         </div>
       )}
 

@@ -133,6 +133,8 @@ export default function HortaCatalog({
         ? produtorMap.get(product.produtorId ?? '')
         : activeProdutor
       if (!produtor) return
+      // Só pode vender quem conectou a conta de recebimento (Stripe).
+      if (produtor.stripeOnboarded !== true) return
 
       const result = addItem(product as Product, { id: produtor.id, name: produtor.name }, cartHorta)
       if (result === 'conflict') {
@@ -257,7 +259,7 @@ export default function HortaCatalog({
                     key={product.id}
                     product={product}
                     produtorName={produtor?.name}
-                    isOpen={produtor?.isOpen ?? false}
+                    isOpen={(produtor?.isOpen ?? false) && produtor?.stripeOnboarded === true}
                     onAdd={handleAddItem}
                   />
                 )
@@ -274,6 +276,12 @@ export default function HortaCatalog({
             <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
               <strong>{activeProdutor.name}</strong> está fechado no momento. Você ainda pode ver o
               catálogo, mas não pode fazer pedidos.
+            </div>
+          )}
+
+          {activeProdutor && activeProdutor.isOpen && activeProdutor.stripeOnboarded !== true && (
+            <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              <strong>{activeProdutor.name}</strong> ainda não está disponível para pedidos.
             </div>
           )}
 
@@ -313,7 +321,7 @@ export default function HortaCatalog({
                     <ProductCard
                       key={product.id}
                       product={product}
-                      isOpen={activeProdutor?.isOpen ?? false}
+                      isOpen={(activeProdutor?.isOpen ?? false) && activeProdutor?.stripeOnboarded === true}
                       onAdd={handleAddItem}
                     />
                   ))}

@@ -112,7 +112,7 @@ const refundOrderFn = httpsCallable<{ orderId: string }, { ok: boolean; reason?:
   'refundOrder',
 )
 
-/** Estorna o pagamento de um pedido no Mercado Pago (somente admins). */
+/** Estorna o pagamento de um pedido no Stripe (somente admins). */
 export async function callRefundOrder(orderId: string): Promise<{ ok: boolean; reason?: string }> {
   const result = await refundOrderFn({ orderId })
   return result.data
@@ -180,25 +180,31 @@ export async function callGenerateAccessLink(uid: string): Promise<AccessLinkRes
   return result.data
 }
 
-const setProducerMpTokenFn = httpsCallable<
-  { produtorId: string; accessToken: string },
-  { ok: boolean }
->(functions, 'setProducerMpToken')
+// ── Stripe Connect (onboarding do produtor) ─────────────
 
-const removeProducerMpTokenFn = httpsCallable<
+const getStripeOnboardingLinkFn = httpsCallable<{ produtorId: string }, { url: string }>(
+  functions,
+  'getStripeOnboardingLink',
+)
+
+const refreshStripeAccountStatusFn = httpsCallable<
   { produtorId: string },
-  { ok: boolean }
->(functions, 'removeProducerMpToken')
+  { hasAccount: boolean; stripeOnboarded: boolean }
+>(functions, 'refreshStripeAccountStatus')
 
-/** Armazena o access_token MP de um produtor (somente admins). */
-export async function callSetProducerMpToken(
-  produtorId: string,
-  accessToken: string,
-): Promise<void> {
-  await setProducerMpTokenFn({ produtorId, accessToken })
+/**
+ * Cria (se necessário) a conta Stripe Connect do produtor e devolve um link
+ * de onboarding hospedado. Chamável pelo dono do produtor ou por admin.
+ */
+export async function callGetStripeOnboardingLink(produtorId: string): Promise<string> {
+  const result = await getStripeOnboardingLinkFn({ produtorId })
+  return result.data.url
 }
 
-/** Remove o token MP de um produtor (somente admins). */
-export async function callRemoveProducerMpToken(produtorId: string): Promise<void> {
-  await removeProducerMpTokenFn({ produtorId })
+/** Reconsulta o status da conta Stripe e sincroniza o flag stripeOnboarded. */
+export async function callRefreshStripeAccountStatus(
+  produtorId: string,
+): Promise<{ hasAccount: boolean; stripeOnboarded: boolean }> {
+  const result = await refreshStripeAccountStatusFn({ produtorId })
+  return result.data
 }

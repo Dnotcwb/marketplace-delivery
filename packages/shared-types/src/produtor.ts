@@ -101,8 +101,10 @@ export interface Produtor {
   status: ProdutorStatus
   /** % de comissão da plataforma — definida pelo admin */
   commission: number
-  /** True quando o admin registrou a conta Mercado Pago deste produtor */
-  mpConnected?: boolean
+  /** ID da conta conectada Stripe deste produtor (definido ao iniciar o onboarding). Escrito só por Cloud Functions. */
+  stripeAccountId?: string
+  /** True quando a conta Stripe está apta a receber (capability transfers = active). Escrito só por Cloud Functions. */
+  stripeOnboarded?: boolean
 
   /** Média das avaliações (1–5), mantida por Cloud Function. Ausente = sem avaliações ainda. */
   ratingAvg?: number

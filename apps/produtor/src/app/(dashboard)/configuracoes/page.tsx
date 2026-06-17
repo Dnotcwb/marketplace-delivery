@@ -1,6 +1,10 @@
 'use client'
 
-import { updateProdutor } from '@marketplace/shared-services'
+import {
+  updateProdutor,
+  callGetStripeOnboardingLink,
+  callRefreshStripeAccountStatus,
+} from '@marketplace/shared-services'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -83,6 +87,12 @@ export default function ConfiguracoesPage() {
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-neutral-900">Configurações</h1>
 
+      <RecebimentoSection
+        produtorId={produtor.id}
+        initialOnboarded={produtor.stripeOnboarded === true}
+        initialHasAccount={!!produtor.stripeAccountId}
+      />
+
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
         <h2 className="mb-5 text-base font-bold text-neutral-800">Dados do produtor</h2>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -143,5 +153,111 @@ export default function ConfiguracoesPage() {
         </form>
       </section>
     </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────
+//  Seção de recebimento (Stripe Connect)
+// ──────────────────────────────────────────────────────
+
+function RecebimentoSection({
+  produtorId,
+  initialOnboarded,
+  initialHasAccount,
+}: {
+  produtorId: string
+  initialOnboarded: boolean
+  initialHasAccount: boolean
+}) {
+  const [onboarded, setOnboarded] = useState(initialOnboarded)
+  const [hasAccount, setHasAccount] = useState(initialHasAccount)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    setOnboarded(initialOnboarded)
+    setHasAccount(initialHasAccount)
+  }, [initialOnboarded, initialHasAccount])
+
+  // Ao voltar do onboarding do Stripe (return_url contém ?stripe=return),
+  // reconsulta o status para refletir imediatamente.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('stripe') !== 'return') return
+    let active = true
+    ;(async () => {
+      try {
+        const res = await callRefreshStripeAccountStatus(produtorId)
+        if (!active) return
+        setOnboarded(res.stripeOnboarded)
+        setHasAccount(res.hasAccount)
+      } catch {
+        /* silencioso — usuário pode tentar de novo */
+      } finally {
+        // Limpa o query param da URL
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [produtorId])
+
+  async function handleConnect() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const url = await callGetStripeOnboardingLink(produtorId)
+      window.location.href = url
+    } catch {
+      setErr('Não foi possível abrir o cadastro de recebimento. Tente novamente.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <h2 className="text-base font-bold text-neutral-800">Recebimento</h2>
+        {onboarded ? (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+            Conectado
+          </span>
+        ) : hasAccount ? (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+            Cadastro incompleto
+          </span>
+        ) : (
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-500">
+            Não conectado
+          </span>
+        )}
+      </div>
+
+      {onboarded ? (
+        <p className="text-sm text-neutral-500">
+          Sua conta está conectada. Você recebe automaticamente sua parte de cada
+          pedido, já com a comissão da plataforma descontada.
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-sm text-neutral-500">
+            Para vender e receber pelos pedidos, conecte sua conta de recebimento.
+            O cadastro é feito de forma segura na Stripe (pede seus dados e uma conta
+            bancária). {hasAccount && 'Seu cadastro ficou incompleto — continue de onde parou.'}
+          </p>
+          {err && <p className="mb-3 text-sm text-red-500">{err}</p>}
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={busy}
+            className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+          >
+            {busy ? 'Abrindo…' : hasAccount ? 'Continuar cadastro' : 'Conectar conta para receber'}
+          </button>
+        </>
+      )}
+    </section>
   )
 }

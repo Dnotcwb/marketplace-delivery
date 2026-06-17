@@ -105,14 +105,15 @@ export type PaymentMethod = 'pix' | 'credit_card' | 'debit_card'
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'refunded'
 
 export interface Payment {
+  /** Definido pelo consumidor na escolha; com Stripe Checkout pode vir do método efetivamente usado */
   method: PaymentMethod
   status: PaymentStatus
-  /** ID do recurso MP criado no checkout (payment id no PIX, preference id no cartão) */
-  externalId?: string
-  /** ID real do pagamento no Mercado Pago (gravado pelo webhook) — usado para estorno */
-  mpPaymentId?: string
-  pixQrCodeBase64?: string
-  pixQrCode?: string
+  /** ID da Stripe Checkout Session criada no checkout */
+  stripeSessionId?: string
+  /** ID do PaymentIntent (gravado pelo webhook ao confirmar) — usado para estorno */
+  stripePaymentIntentId?: string
+  /** ID da Charge real (gravado pelo webhook) — usado como source_transaction dos transfers e no estorno */
+  stripeChargeId?: string
   paidAt?: Timestamp
   /** Quando o estorno foi processado */
   refundedAt?: Timestamp
@@ -177,8 +178,12 @@ export interface PedidoFilho {
   status: FilhoStatus
   /** Valor a repassar ao produtor, em centavos */
   valorRepasseInCents: number
+  /** Snapshot da conta Stripe do produtor (destino do transfer) no momento do pedido */
+  stripeAccountId?: string
+  /** ID do Stripe Transfer feito para o produtor (gravado pelo webhook ao confirmar pagamento) */
+  transferId?: string
   items: OrderItem[]
-  /** Controle de repasse financeiro */
+  /** Controle de repasse financeiro (setado automaticamente quando o transfer é criado) */
   repassePago?: boolean
   repassePagoAt?: Timestamp
   createdAt: Timestamp

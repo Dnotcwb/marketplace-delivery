@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { MercadoPagoConfig, Payment as MPPayment, Preference } from 'mercadopago'
+import { getStripe, CONSUMIDOR_URL } from '../payments/stripeClient'
 
 // ──────────────────────────────────────────────────────
 //  Tipos de entrada
@@ -90,13 +90,6 @@ async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | n
   }
 }
 
-const WEBHOOK_URL =
-  process.env['MP_WEBHOOK_URL'] ??
-  'https://southamerica-east1-marketplace-delivery-dev.cloudfunctions.net/mercadoPagoWebhook'
-
-const CONSUMIDOR_URL =
-  process.env['CONSUMIDOR_APP_URL'] ?? 'https://marketplace-delivery-consumidor.netlify.app'
-
 // Comissão da plataforma definida POR PRODUTOR em produtores/{id}.commission,
 // como percentual 0–100 (é assim que o backoffice grava o campo).
 const DEFAULT_COMMISSION_PCT = 10
@@ -107,7 +100,7 @@ function commissionPctOf(produtorData: FirebaseFirestore.DocumentData): number {
 }
 
 export const createOrder = onCall(
-  { region: 'southamerica-east1', secrets: ['MERCADO_PAGO_ACCESS_TOKEN'] },
+  { region: 'southamerica-east1', secrets: ['STRIPE_SECRET_KEY'] },
   async (request) => {
     try {
       if (!request.auth) {
@@ -185,6 +178,13 @@ export const createOrder = onCall(
         const hortaIdDoProd = produtorData['hortaId'] as string | undefined
         if (hortaIdDoProd && hortaIdDoProd !== data.hortaId) {
           throw new HttpsError('failed-precondition', `Produtor ${produtorData['name']} não pertence a esta horta`)
+        }
+        // Split via Stripe Connect: só pode vender quem tem conta apta a receber.
+        if (produtorData['stripeOnboarded'] !== true || !produtorData['stripeAccountId']) {
+          throw new HttpsError(
+            'failed-precondition',
+            `${produtorData['name']} ainda não está apto a receber pagamentos. Tente novamente mais tarde.`,
+          )
         }
         validatedProdutores.push(produtorData)
       }
@@ -426,6 +426,8 @@ export const createOrder = onCall(
           deliveryAddress: deliveryAddressClean,
           status: 'pendente',
           valorRepasseInCents: valorRepasse,
+          // Destino do transfer (snapshot — garantido pela validação stripeOnboarded acima)
+          stripeAccountId: group.produtorData['stripeAccountId'],
           items: group.orderItems,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -434,103 +436,54 @@ export const createOrder = onCall(
       await filhoBatch.commit()
       console.log('Pedidos filhos criados')
 
-      // 7. Integração Mercado Pago
-      const platformToken = process.env['MERCADO_PAGO_ACCESS_TOKEN']
-      const skipMp = process.env['SKIP_MP'] === 'true'
+      // 7. Integração Stripe — cria uma Checkout Session hospedada.
+      //    Modelo "separate charges and transfers": a cobrança vai para a
+      //    plataforma; o split entre produtores acontece no webhook
+      //    (payment_intent.succeeded) via Stripe Transfers.
+      const stripeKey = process.env['STRIPE_SECRET_KEY']
+      const skipStripe = process.env['SKIP_STRIPE'] === 'true'
 
-      if (!platformToken || skipMp) {
+      if (!stripeKey || skipStripe) {
         return { orderId, paymentMethod: data.paymentMethod, total: totalInCents, devMode: true }
       }
 
-      // Split direto ao produtor quando:
-      // (a) pedido de produtor único E
-      // (b) produtor tem token MP cadastrado E
-      // (c) plataforma tem MP_CLIENT_ID (app Marketplace configurado)
-      let mpToken = platformToken
-      let marketplaceFeeAmount: number | undefined
-      const mpClientId = process.env['MP_CLIENT_ID']
+      const stripe = getStripe()
+      const customerEmail = (request.auth?.token?.email as string | undefined) ?? undefined
 
-      if (produtorGroups.size === 1 && mpClientId) {
-        const singleProdutorId = [...produtorGroups.keys()][0]!
-        const mpTokenSnap = await db.collection('mp_tokens').doc(singleProdutorId).get()
-        const producerToken = mpTokenSnap.data()?.['accessToken'] as string | undefined
-        if (producerToken) {
-          mpToken = producerToken
-          const commissionPct = commissionPctOf(
-            produtorGroups.get(singleProdutorId)!.produtorData,
-          )
-          marketplaceFeeAmount = Math.round(totalInCents * (commissionPct / 100)) / 100
-          console.log('Usando token do produtor — split direto, taxa plataforma:', marketplaceFeeAmount)
-        }
-      }
-
-      const client = new MercadoPagoConfig({ accessToken: mpToken })
-
-      if (data.paymentMethod === 'pix') {
-        console.log('Etapa 7: criando pagamento PIX')
-        const paymentApi = new MPPayment(client)
-        const payerEmail = (request.auth?.token?.email as string | undefined) ?? `${uid}@marketplace.app`
-        const mpResult = await paymentApi.create({
-          body: {
-            transaction_amount: totalInCents / 100,
-            description: `Pedido ${orderId.slice(0, 8)} - ${horta['name']}`,
-            payment_method_id: 'pix',
-            payer: { email: payerEmail },
-            external_reference: orderId,
-            notification_url: WEBHOOK_URL,
-            ...(marketplaceFeeAmount !== undefined && { marketplace_fee: marketplaceFeeAmount }),
-          },
-        })
-
-        console.log('PIX criado — MP id:', mpResult.id, 'status:', mpResult.status)
-        const txData = mpResult.point_of_interaction?.transaction_data
-        await orderRef.update({
-          'payment.externalId': String(mpResult.id),
-          'payment.pixQrCode': txData?.qr_code ?? '',
-          'payment.pixQrCodeBase64': txData?.qr_code_base64 ?? '',
-        })
-
-        return {
-          orderId,
-          paymentMethod: 'pix',
-          pixQrCode: txData?.qr_code ?? '',
-          pixQrCodeBase64: txData?.qr_code_base64 ?? '',
-          total: totalInCents,
-        }
-      } else {
-        console.log('Etapa 7: criando preferência Checkout Pro')
-        const allItems = [...produtorGroups.values()].flatMap((g) => g.orderItems)
-        const prefApi = new Preference(client)
-        const pref = await prefApi.create({
-          body: {
-            items: allItems.map((it, idx) => ({
-              id: String(idx + 1),
-              title: it['productName'] as string,
-              quantity: it['quantity'] as number,
-              unit_price: (it['priceInCents'] as number) / 100,
-              currency_id: 'BRL',
-            })),
-            external_reference: orderId,
-            notification_url: WEBHOOK_URL,
-            ...(marketplaceFeeAmount !== undefined && { marketplace_fee: marketplaceFeeAmount }),
-            back_urls: {
-              success: `${CONSUMIDOR_URL}/pedido/${orderId}`,
-              failure: `${CONSUMIDOR_URL}/checkout`,
-              pending: `${CONSUMIDOR_URL}/pedido/${orderId}`,
+      // Um único line_item com o total já calculado (subtotal + frete − desconto),
+      // para a cobrança bater exatamente com totalInCents (o detalhamento dos
+      // itens fica no próprio app, na tela do pedido).
+      const itemCount = [...produtorGroups.values()].reduce((n, g) => n + g.orderItems.length, 0)
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card', 'pix'],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'brl',
+              unit_amount: totalInCents,
+              product_data: {
+                name: `Pedido ${orderId.slice(0, 8).toUpperCase()} — ${horta['name']}`,
+                description: `${itemCount} item(ns) · ${produtorGroups.size} produtor(es)`,
+              },
             },
-            auto_return: 'approved',
           },
-        })
+        ],
+        ...(customerEmail ? { customer_email: customerEmail } : {}),
+        client_reference_id: orderId,
+        metadata: { orderId },
+        payment_intent_data: { metadata: { orderId } },
+        success_url: `${CONSUMIDOR_URL}/pedido/${orderId}?paid=1`,
+        cancel_url: `${CONSUMIDOR_URL}/checkout?cancelled=1`,
+      })
 
-        await orderRef.update({ 'payment.externalId': pref.id ?? '' })
+      await orderRef.update({ 'payment.stripeSessionId': session.id ?? '' })
 
-        return {
-          orderId,
-          paymentMethod: 'credit_card',
-          // init_point = produção; sandbox_init_point só existe com credenciais de teste
-          mpPreferenceUrl: pref.init_point ?? pref.sandbox_init_point ?? '',
-          total: totalInCents,
-        }
+      return {
+        orderId,
+        checkoutUrl: session.url ?? '',
+        total: totalInCents,
       }
     } catch (err) {
       if (err instanceof HttpsError) throw err

@@ -85,8 +85,13 @@ export default function ProdutorCatalog({
     [allProducts, activeCategoryId],
   )
 
+  // Só pode vender quem já conectou a conta de recebimento (Stripe).
+  // O bloqueio definitivo é server-side no createOrder; aqui é a camada de UX.
+  const podeReceber = produtor.stripeOnboarded === true
+
   const handleAddItem = useCallback(
     (product: SerializableProduct) => {
+      if (!podeReceber) return
       const result = addItem(
         product as Product,
         { id: produtor.id, name: produtor.name },
@@ -98,7 +103,7 @@ export default function ProdutorCatalog({
         openCart()
       }
     },
-    [addItem, openCart, produtor.id, produtor.name, cartHorta],
+    [addItem, openCart, produtor.id, produtor.name, cartHorta, podeReceber],
   )
 
   const handleConflictConfirm = useCallback(() => {
@@ -142,6 +147,13 @@ export default function ProdutorCatalog({
         </div>
       )}
 
+      {/* Aviso: produtor ainda não habilitado para receber pedidos */}
+      {!podeReceber && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Este produtor ainda não está disponível para pedidos. Volte em breve.
+        </div>
+      )}
+
       {/* Catálogo */}
       {categories.length === 0 ? (
         <div className="py-10 text-center text-sm text-neutral-400">
@@ -179,7 +191,7 @@ export default function ProdutorCatalog({
                 <ProductCard
                   key={product.id}
                   product={product}
-                  isOpen={produtor.isOpen}
+                  isOpen={produtor.isOpen && podeReceber}
                   onAdd={handleAddItem}
                 />
               ))}

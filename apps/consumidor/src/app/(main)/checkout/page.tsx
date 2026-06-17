@@ -1,6 +1,6 @@
 'use client'
 
-import { firestore, functions } from '@marketplace/shared-firebase'
+import { functions } from '@marketplace/shared-firebase'
 import {
   createAddress,
   deleteAddress,
@@ -15,11 +15,9 @@ import type { CouponPreview } from '@marketplace/shared-services'
 import type { Address } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
 import { calcDeliveryFee, formatCurrency } from '@marketplace/shared-utils'
-import { doc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // ──────────────────────────────────────────────────────
 //  Tipos do retorno da Cloud Function
@@ -27,10 +25,8 @@ import { useEffect, useRef, useState } from 'react'
 
 interface CreateOrderResult {
   orderId: string
-  paymentMethod: 'pix' | 'credit_card'
-  pixQrCode?: string
-  pixQrCodeBase64?: string
-  mpPreferenceUrl?: string
+  /** URL da Stripe Checkout Session para onde o consumidor é redirecionado */
+  checkoutUrl?: string
   total: number
   devMode?: boolean
 }
@@ -120,20 +116,14 @@ export default function CheckoutPage() {
   const [geocodingFailed, setGeocodingFailed] = useState(false)
 
   // Pagamento
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix')
   const [couponCode, setCouponCode] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState<CouponPreview | null>(null)
   const [couponError, setCouponError] = useState('')
 
   // Envio
-  const [pageState, setPageState] = useState<'form' | 'submitting' | 'pix' | 'done'>('form')
-  const [orderResult, setOrderResult] = useState<CreateOrderResult | null>(null)
+  const [pageState, setPageState] = useState<'form' | 'submitting'>('form')
   const [error, setError] = useState<string | null>(null)
-
-  // PIX copy
-  const [copied, setCopied] = useState(false)
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Redireciona para home se carrinho vazio — mas não depois de submeter o pedido
   useEffect(() => {
@@ -202,20 +192,6 @@ export default function CheckoutPage() {
       })
     return () => { cancelled = true }
   }, [selectedAddressId, addresses, horta])
-
-  // Ouve mudança no status do pedido (PIX → confirma quando pago)
-  useEffect(() => {
-    if (pageState !== 'pix' || !orderResult?.orderId) return
-
-    const unsub = onSnapshot(doc(firestore, 'orders', orderResult.orderId), (snap) => {
-      const data = snap.data()
-      if (data?.['status'] === 'confirmed') {
-        clearCart()
-        router.replace(`/pedido/${orderResult.orderId}`)
-      }
-    })
-    return unsub
-  }, [pageState, orderResult, clearCart, router])
 
   if (authLoading || !user || !horta) return null
 
@@ -444,107 +420,36 @@ export default function CheckoutPage() {
           ...(notes ? { notes } : {}),
         })),
         deliveryAddress,
-        paymentMethod,
+        // Stripe Checkout oferece PIX e cartão na própria página; enviamos um
+        // método inicial só para registro (o webhook grava o efetivamente usado).
+        paymentMethod: 'pix',
         // Só envia o cupom validado e aplicado — o texto solto do input não
         // entra no pedido (o total exibido deve bater com o cobrado).
         ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
       })
 
       const result = res.data
-      setOrderResult(result)
 
       if (result.devMode) {
-        // Sem MP configurado — vai direto para tracking (sem pagamento real)
-        router.replace(`/pedido/${result.orderId}`)
+        // Sem Stripe configurado — vai direto para tracking (sem pagamento real)
         clearCart()
+        router.replace(`/pedido/${result.orderId}`)
         return
       }
 
-      if (paymentMethod === 'pix') {
-        setPageState('pix')
-      } else if (result.mpPreferenceUrl) {
+      if (result.checkoutUrl) {
+        // Redireciona para a página de pagamento hospedada do Stripe.
         clearCart()
-        window.location.href = result.mpPreferenceUrl
+        window.location.href = result.checkoutUrl
+      } else {
+        setError('Não foi possível iniciar o pagamento. Tente novamente.')
+        setPageState('form')
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao criar pedido.'
       setError(msg.replace('Error: ', ''))
       setPageState('form')
     }
-  }
-
-  // ── Copiar código PIX ────────────────────────────────
-
-  function handleCopyPix() {
-    if (!orderResult?.pixQrCode) return
-    navigator.clipboard.writeText(orderResult.pixQrCode).then(() => {
-      setCopied(true)
-      if (copiedTimer.current) clearTimeout(copiedTimer.current)
-      copiedTimer.current = setTimeout(() => setCopied(false), 3000)
-    })
-  }
-
-  // ═══════════════════════════════════════════════════
-  //  Tela PIX (após criar pedido)
-  // ═══════════════════════════════════════════════════
-
-  if (pageState === 'pix' && orderResult) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-10">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm text-center">
-          <div className="mb-2 text-4xl">📱</div>
-          <h1 className="mb-1 text-xl font-bold text-neutral-900">Pague com PIX</h1>
-          <p className="mb-6 text-sm text-neutral-500">
-            Escaneie o QR Code ou copie o código abaixo. O pedido é confirmado automaticamente.
-          </p>
-
-          {orderResult.pixQrCodeBase64 ? (
-            <div className="mb-5 flex justify-center">
-              <Image
-                src={`data:image/png;base64,${orderResult.pixQrCodeBase64}`}
-                alt="QR Code PIX"
-                width={220}
-                height={220}
-                className="rounded-xl"
-                unoptimized
-              />
-            </div>
-          ) : (
-            <div className="mb-5 flex h-56 items-center justify-center rounded-xl bg-neutral-100 text-neutral-400 text-sm">
-              QR Code indisponível
-            </div>
-          )}
-
-          <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-left">
-            <p className="mb-1 text-xs font-medium text-neutral-500">Código PIX copia e cola</p>
-            <p className="break-all text-xs text-neutral-700 font-mono leading-relaxed">
-              {orderResult.pixQrCode ?? '—'}
-            </p>
-          </div>
-
-          <button
-            onClick={handleCopyPix}
-            className="mb-4 w-full rounded-xl bg-brand-500 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-600"
-          >
-            {copied ? '✓ Copiado!' : 'Copiar código PIX'}
-          </button>
-
-          <p className="mb-6 text-xs text-neutral-400">
-            Total: {formatCurrency(orderResult.total)} · Pedido #{orderResult.orderId.slice(0, 8)}
-          </p>
-
-          <button
-            onClick={() => {
-              clearCart()
-              router.replace(`/pedido/${orderResult.orderId}`)
-            }}
-            className="w-full rounded-xl border border-neutral-300 py-2.5 text-sm font-semibold text-neutral-600 hover:bg-neutral-50"
-          >
-            Acompanhar pedido →
-          </button>
-        </div>
-      </div>
-    )
   }
 
   // ═══════════════════════════════════════════════════
@@ -910,26 +815,12 @@ export default function CheckoutPage() {
 
           {/* Forma de pagamento */}
           <section className="rounded-2xl border border-neutral-200 bg-white p-5">
-            <h2 className="mb-4 text-base font-bold text-neutral-900">Forma de pagamento</h2>
-
-            <div className="space-y-2">
-              <PaymentOption
-                value="pix"
-                selected={paymentMethod === 'pix'}
-                onSelect={() => setPaymentMethod('pix')}
-                icon="⚡"
-                title="PIX"
-                subtitle="Aprovação imediata"
-              />
-              <PaymentOption
-                value="credit_card"
-                selected={paymentMethod === 'credit_card'}
-                onSelect={() => setPaymentMethod('credit_card')}
-                icon="💳"
-                title="Cartão de crédito"
-                subtitle="Redirecionado para Mercado Pago"
-              />
-            </div>
+            <h2 className="mb-2 text-base font-bold text-neutral-900">Pagamento</h2>
+            <p className="text-sm text-neutral-500">
+              Você escolhe entre <span className="font-medium">PIX</span> ou{' '}
+              <span className="font-medium">cartão de crédito</span> na próxima etapa, em uma
+              página de pagamento segura.
+            </p>
           </section>
 
           {/* Cupom */}
@@ -1081,7 +972,7 @@ export default function CheckoutPage() {
             </button>
 
             <p className="mt-3 text-center text-xs text-neutral-400">
-              Pagamento processado com segurança via Mercado Pago
+              Pagamento processado com segurança via Stripe
             </p>
           </div>
         </div>
@@ -1106,41 +997,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function PaymentOption({
-  value,
-  selected,
-  onSelect,
-  icon,
-  title,
-  subtitle,
-}: {
-  value: string
-  selected: boolean
-  onSelect: () => void
-  icon: string
-  title: string
-  subtitle: string
-}) {
-  return (
-    <label
-      className={[
-        'flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition-colors',
-        selected ? 'border-brand-500 bg-brand-50' : 'border-neutral-200 hover:border-neutral-300',
-      ].join(' ')}
-    >
-      <input
-        type="radio"
-        name="paymentMethod"
-        value={value}
-        checked={selected}
-        onChange={onSelect}
-        className="accent-brand-500"
-      />
-      <span className="text-xl">{icon}</span>
-      <div>
-        <p className="text-sm font-semibold text-neutral-900">{title}</p>
-        <p className="text-xs text-neutral-500">{subtitle}</p>
-      </div>
-    </label>
-  )
-}

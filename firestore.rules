@@ -103,14 +103,21 @@ service cloud.firestore {
 
       // Qualquer usuário autenticado pode submeter um cadastro pendente.
       // O role 'produtor' só é setado APÓS aprovação pelo admin.
+      // Campos de pagamento (Stripe) nunca podem ser definidos pelo client —
+      // só por Cloud Functions (admin SDK ignora estas regras).
       allow create: if isAuthenticated()
                     && request.resource.data.ownerUid == userId()
-                    && request.resource.data.status == 'pending';
+                    && request.resource.data.status == 'pending'
+                    && !request.resource.data.keys().hasAny(['stripeAccountId'])
+                    && (!('stripeOnboarded' in request.resource.data)
+                        || request.resource.data.stripeOnboarded == false);
 
       allow update: if (isOwnerOfProdutor(produtorId)
                        && isUnchanged('status')
                        && isUnchanged('commission')
-                       && isUnchanged('approvedAt'))
+                       && isUnchanged('approvedAt')
+                       && isUnchanged('stripeAccountId')
+                       && isUnchanged('stripeOnboarded'))
                     // Gestor de horta só vincula produtor livre à PRÓPRIA horta
                     // ou desvincula produtor que está na PRÓPRIA horta.
                     || (isHortaManager()
@@ -182,12 +189,6 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isAdmin() || isOwnerOfHorta(hortaId);
       allow delete: if isAdmin();
-    }
-
-    // ==================== MP TOKENS ====================
-    // Tokens MP dos produtores — somente Cloud Functions (admin SDK) acessam.
-    match /mp_tokens/{produtorId} {
-      allow read, write: if false;
     }
 
     // ==================== PEDIDOS FILHOS ====================
