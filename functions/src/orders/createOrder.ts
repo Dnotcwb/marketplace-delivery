@@ -456,7 +456,8 @@ export const createOrder = onCall(
       const itemCount = [...produtorGroups.values()].reduce((n, g) => n + g.orderItems.length, 0)
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        payment_method_types: ['card', 'pix'],
+        // Sem payment_method_types fixo: o Stripe Checkout oferece automaticamente
+        // os métodos ativados no dashboard (cartão por padrão; PIX quando habilitado).
         line_items: [
           {
             quantity: 1,
