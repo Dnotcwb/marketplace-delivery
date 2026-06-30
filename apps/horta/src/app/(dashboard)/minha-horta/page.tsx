@@ -1,6 +1,8 @@
 'use client'
 
 import { updateHorta } from '@marketplace/shared-services'
+import { storage } from '@marketplace/shared-firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useState, useEffect } from 'react'
 import { useHorta } from '@/components/HortaGuard'
 
@@ -27,6 +29,33 @@ export default function MinhaHortaPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [uploading, setUploading] = useState<'logo' | 'banner' | null>(null)
+
+  async function handleImageUpload(file: File, kind: 'logo' | 'banner') {
+    if (!file.type.startsWith('image/')) {
+      setError('Selecione um arquivo de imagem.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Imagem muito grande (máximo 10 MB).')
+      return
+    }
+    setUploading(kind)
+    setError('')
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `hortas/${hortaId}/${kind}_${Date.now()}.${ext}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file, { contentType: file.type })
+      const url = await getDownloadURL(storageRef)
+      await updateHorta(hortaId, kind === 'logo' ? { logoUrl: url } : { bannerUrl: url })
+      // A pré-visualização atualiza sozinha via listener em tempo real da horta.
+    } catch {
+      setError('Erro ao enviar a imagem. Tente novamente.')
+    } finally {
+      setUploading(null)
+    }
+  }
 
   // Sincroniza campos se a horta mudar em tempo real
   useEffect(() => {
@@ -117,6 +146,79 @@ export default function MinhaHortaPage() {
                 placeholder="Descreva a sua horta…"
               />
             </div>
+          </div>
+        </section>
+
+        {/* Identidade visual */}
+        <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-neutral-700 uppercase tracking-wide">Identidade visual</h2>
+
+          {/* Imagem de fundo (banner) */}
+          <div className="mb-5">
+            <label className={labelCls}>Imagem de fundo (banner)</label>
+            <div className="relative h-36 w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+              {horta.bannerUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={horta.bannerUrl} alt="Banner da horta" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
+                  Nenhuma imagem de fundo
+                </div>
+              )}
+              {horta.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={horta.logoUrl}
+                  alt="Logo da horta"
+                  className="absolute bottom-3 left-3 h-16 w-16 rounded-full border-2 border-white object-cover shadow-md"
+                />
+              )}
+            </div>
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:border-brand-400 hover:text-brand-600">
+              {uploading === 'banner' ? 'Enviando…' : horta.bannerUrl ? 'Trocar imagem de fundo' : 'Enviar imagem de fundo'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading !== null}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleImageUpload(f, 'banner')
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <p className="mt-1 text-xs text-neutral-400">Recomendado: imagem horizontal, pelo menos 1200×400px. Máx 10 MB.</p>
+          </div>
+
+          {/* Logo */}
+          <div>
+            <label className={labelCls}>Logo da horta</label>
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-neutral-200 bg-neutral-100">
+                {horta.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={horta.logoUrl} alt="Logo da horta" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">Sem logo</div>
+                )}
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:border-brand-400 hover:text-brand-600">
+                {uploading === 'logo' ? 'Enviando…' : horta.logoUrl ? 'Trocar logo' : 'Enviar logo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleImageUpload(f, 'logo')
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-neutral-400">Recomendado: imagem quadrada, pelo menos 400×400px. Máx 10 MB.</p>
           </div>
         </section>
 

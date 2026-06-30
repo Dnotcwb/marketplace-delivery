@@ -30,6 +30,15 @@ service firebase.storage {
       allow write: if isAuthenticated() && isImage() && sizeUnder(10);
     }
 
+    // Logo e imagem de fundo (banner) das hortas
+    match /hortas/{hortaId}/{file} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+                   && (request.auth.token.hortaId == hortaId || isAdmin())
+                   && isImage()
+                   && sizeUnder(10);
+    }
+
     // Fotos de produtos
     match /produtores/{produtorId}/products/{productId}/{file} {
       allow read: if true;
