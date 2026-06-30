@@ -116,8 +116,11 @@ service cloud.firestore {
                        && isUnchanged('status')
                        && isUnchanged('commission')
                        && isUnchanged('approvedAt')
-                       && isUnchanged('stripeAccountId')
-                       && isUnchanged('stripeOnboarded'))
+                       // Campos de pagamento só mudam via Cloud Functions. Usamos
+                       // diff().affectedKeys() (e não isUnchanged) para funcionar
+                       // mesmo quando o campo ainda nem existe no documento.
+                       && !request.resource.data.diff(resource.data).affectedKeys()
+                            .hasAny(['stripeAccountId', 'stripeOnboarded']))
                     // Gestor de horta só vincula produtor livre à PRÓPRIA horta
                     // ou desvincula produtor que está na PRÓPRIA horta.
                     || (isHortaManager()
