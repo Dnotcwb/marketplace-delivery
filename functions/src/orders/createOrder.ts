@@ -133,6 +133,7 @@ export const createOrder = onCall(
 
       const db = admin.firestore()
 
+      // (deploy: suporte a modo demonstração)
       // Modo demonstração (appConfig/platform.demoMode): opera sem pagamento
       // real — produtores vendem sem Stripe e o pedido é confirmado na hora.
       const platformCfgSnap = await db.collection('appConfig').doc('platform').get()
