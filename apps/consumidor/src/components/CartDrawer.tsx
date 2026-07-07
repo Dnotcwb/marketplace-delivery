@@ -185,6 +185,19 @@ export default function CartDrawer() {
               </p>
             )}
 
+            {horta && (
+              <Link
+                href={horta.type === 'produtor' ? `/produtor/${horta.slug}` : `/horta/${horta.slug}`}
+                onClick={closeCart}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-brand-500 py-2.5 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Adicionar mais produtos
+              </Link>
+            )}
+
             <Link
               href="/checkout"
               onClick={closeCart}

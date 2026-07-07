@@ -59,6 +59,7 @@ export default function HortaCatalog({
     id: horta.id,
     slug: horta.slug,
     name: horta.name,
+    type: 'horta',
     deliveryFeeInCents: horta.deliveryFeeInCents,
     ...(horta.deliveryFeePerKmInCents ? { deliveryFeePerKmInCents: horta.deliveryFeePerKmInCents } : {}),
     ...(horta.deliveryRadiusKm != null ? { deliveryRadiusKm: horta.deliveryRadiusKm } : {}),

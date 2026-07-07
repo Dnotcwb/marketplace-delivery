@@ -27,9 +27,10 @@ export default function Footer() {
               <Link href="/sobre" className="text-neutral-500 transition-colors hover:text-brand-600">Sobre nós</Link>
               <Link href="/carreiras" className="text-neutral-500 transition-colors hover:text-brand-600">Carreiras</Link>
               <Link href="/blog" className="text-neutral-500 transition-colors hover:text-brand-600">Blog</Link>
+              <Link href="/parceiros" className="text-neutral-500 transition-colors hover:text-brand-600">Parceiros</Link>
             </div>
             <div className="flex flex-col gap-2">
-              <span className="font-semibold text-neutral-900">Parceiros</span>
+              <span className="font-semibold text-neutral-900">Junte-se a nós</span>
               <Link href="/seja-produtor" className="text-neutral-500 transition-colors hover:text-brand-600">Seja produtor</Link>
               <Link href="/seja-entregador" className="text-neutral-500 transition-colors hover:text-brand-600">Seja entregador</Link>
             </div>

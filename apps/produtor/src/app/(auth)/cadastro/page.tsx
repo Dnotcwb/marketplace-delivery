@@ -133,13 +133,23 @@ export default function CadastroPage() {
 
       <p className="mt-6 text-center text-xs text-neutral-400">
         Ao criar uma conta você concorda com nossos{' '}
-        <Link href="/termos" className="underline">
+        <a
+          href="https://marketplace-delivery-consumidor.netlify.app/termos"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
           Termos de Uso
-        </Link>{' '}
+        </a>{' '}
         e{' '}
-        <Link href="/privacidade" className="underline">
+        <a
+          href="https://marketplace-delivery-consumidor.netlify.app/privacidade"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
           Política de Privacidade
-        </Link>
+        </a>
         .
       </p>
     </div>

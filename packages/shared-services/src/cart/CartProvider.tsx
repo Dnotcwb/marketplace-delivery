@@ -19,6 +19,8 @@ export interface CartHorta {
   id: string
   slug: string
   name: string
+  /** Origem do carrinho: 'horta' (coletivo) ou 'produtor' (avulso). Define a URL de "voltar ao catálogo". */
+  type?: 'horta' | 'produtor'
   deliveryFeeInCents: number
   deliveryFeePerKmInCents?: number
   deliveryRadiusKm?: number | null
