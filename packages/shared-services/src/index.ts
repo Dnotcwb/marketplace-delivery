@@ -11,3 +11,4 @@ export type { CartItem, CartProdutor, CartHorta, CartState, CartContextValue } f
 export * from './review/reviewService'
 export * from './review/driverReviewService'
 export * from './coupon/couponService'
+export * from './config/configService'

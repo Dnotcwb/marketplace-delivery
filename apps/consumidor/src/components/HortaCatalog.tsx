@@ -23,6 +23,8 @@ interface Props {
   initialProdutores: SerializableProdutor[]
   initialCategories: SerializableCategory[]
   initialProducts: SerializableProduct[]
+  /** Modo demonstração: dispensa a conta Stripe dos produtores */
+  demoMode?: boolean
 }
 
 export default function HortaCatalog({
@@ -30,6 +32,7 @@ export default function HortaCatalog({
   initialProdutores,
   initialCategories,
   initialProducts,
+  demoMode = false,
 }: Props) {
   // Only subscribe to ACTIONS — catalog doesn't need cart data, only functions
   const { addItem, clearCart, openCart } = useCartActions()
@@ -134,7 +137,8 @@ export default function HortaCatalog({
         : activeProdutor
       if (!produtor) return
       // Só pode vender quem conectou a conta de recebimento (Stripe).
-      if (produtor.stripeOnboarded !== true) return
+      // Em modo demonstração, essa exigência é dispensada.
+      if (!demoMode && produtor.stripeOnboarded !== true) return
 
       const result = addItem(product as Product, { id: produtor.id, name: produtor.name }, cartHorta)
       if (result === 'conflict') {
@@ -144,7 +148,7 @@ export default function HortaCatalog({
         openCart()
       }
     },
-    [addItem, openCart, activeTab, activeProdutor, produtorMap, cartHorta],
+    [addItem, openCart, activeTab, activeProdutor, produtorMap, cartHorta, demoMode],
   )
 
   const handleConflictConfirm = useCallback(() => {
@@ -259,7 +263,7 @@ export default function HortaCatalog({
                     key={product.id}
                     product={product}
                     produtorName={produtor?.name}
-                    isOpen={(produtor?.isOpen ?? false) && produtor?.stripeOnboarded === true}
+                    isOpen={(produtor?.isOpen ?? false) && (demoMode || produtor?.stripeOnboarded === true)}
                     onAdd={handleAddItem}
                   />
                 )
@@ -279,7 +283,7 @@ export default function HortaCatalog({
             </div>
           )}
 
-          {activeProdutor && activeProdutor.isOpen && activeProdutor.stripeOnboarded !== true && (
+          {activeProdutor && activeProdutor.isOpen && !demoMode && activeProdutor.stripeOnboarded !== true && (
             <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
               <strong>{activeProdutor.name}</strong> ainda não está disponível para pedidos.
             </div>
@@ -321,7 +325,7 @@ export default function HortaCatalog({
                     <ProductCard
                       key={product.id}
                       product={product}
-                      isOpen={(activeProdutor?.isOpen ?? false) && activeProdutor?.stripeOnboarded === true}
+                      isOpen={(activeProdutor?.isOpen ?? false) && (demoMode || activeProdutor?.stripeOnboarded === true)}
                       onAdd={handleAddItem}
                     />
                   ))}

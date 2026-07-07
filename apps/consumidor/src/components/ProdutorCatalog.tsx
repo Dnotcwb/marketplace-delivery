@@ -21,6 +21,8 @@ interface Props {
   initialCategories: SerializableCategory[]
   initialProducts: SerializableProduct[]
   horta: SerializableHorta
+  /** Modo demonstração: dispensa a conta Stripe do produtor */
+  demoMode?: boolean
 }
 
 export default function ProdutorCatalog({
@@ -28,6 +30,7 @@ export default function ProdutorCatalog({
   initialCategories,
   initialProducts,
   horta,
+  demoMode = false,
 }: Props) {
   // Only subscribe to ACTIONS — this component never re-renders due to cart DATA changes
   const { addItem, clearCart, openCart } = useCartActions()
@@ -86,8 +89,9 @@ export default function ProdutorCatalog({
   )
 
   // Só pode vender quem já conectou a conta de recebimento (Stripe).
+  // Em modo demonstração, essa exigência é dispensada.
   // O bloqueio definitivo é server-side no createOrder; aqui é a camada de UX.
-  const podeReceber = produtor.stripeOnboarded === true
+  const podeReceber = demoMode || produtor.stripeOnboarded === true
 
   const handleAddItem = useCallback(
     (product: SerializableProduct) => {

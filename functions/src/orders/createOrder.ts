@@ -133,6 +133,11 @@ export const createOrder = onCall(
 
       const db = admin.firestore()
 
+      // Modo demonstração (appConfig/platform.demoMode): opera sem pagamento
+      // real — produtores vendem sem Stripe e o pedido é confirmado na hora.
+      const platformCfgSnap = await db.collection('appConfig').doc('platform').get()
+      const demoMode = platformCfgSnap.data()?.['demoMode'] === true
+
       // 1. Valida a horta
       console.log('Etapa 1: validando horta')
       const hortaSnap = await db.collection('hortas').doc(data.hortaId).get()
@@ -180,7 +185,8 @@ export const createOrder = onCall(
           throw new HttpsError('failed-precondition', `Produtor ${produtorData['name']} não pertence a esta horta`)
         }
         // Split via Stripe Connect: só pode vender quem tem conta apta a receber.
-        if (produtorData['stripeOnboarded'] !== true || !produtorData['stripeAccountId']) {
+        // Em modo demonstração, esta exigência é ignorada (sem pagamento real).
+        if (!demoMode && (produtorData['stripeOnboarded'] !== true || !produtorData['stripeAccountId'])) {
           throw new HttpsError(
             'failed-precondition',
             `${produtorData['name']} ainda não está apto a receber pagamentos. Tente novamente mais tarde.`,
@@ -426,8 +432,11 @@ export const createOrder = onCall(
           deliveryAddress: deliveryAddressClean,
           status: 'pendente',
           valorRepasseInCents: valorRepasse,
-          // Destino do transfer (snapshot — garantido pela validação stripeOnboarded acima)
-          stripeAccountId: group.produtorData['stripeAccountId'],
+          // Destino do transfer (snapshot). Ausente em modo demonstração —
+          // só incluído quando existe, pois o Firestore rejeita undefined.
+          ...(group.produtorData['stripeAccountId']
+            ? { stripeAccountId: group.produtorData['stripeAccountId'] }
+            : {}),
           items: group.orderItems,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -435,6 +444,20 @@ export const createOrder = onCall(
       }
       await filhoBatch.commit()
       console.log('Pedidos filhos criados')
+
+      // 7a. Modo demonstração: sem pagamento real. Confirma o pedido na hora
+      //     para que ele flua por todos os apps (produtor, entregador, etc.).
+      if (demoMode) {
+        await orderRef.update({
+          status: 'confirmed',
+          'payment.status': 'approved',
+          'payment.paidAt': FieldValue.serverTimestamp(),
+          statusHistory: FieldValue.arrayUnion({ status: 'confirmed', timestamp: tsNow }),
+          confirmedAt: FieldValue.serverTimestamp(),
+        })
+        console.log('createOrder: modo demonstração — pedido confirmado sem pagamento', orderId)
+        return { orderId, total: totalInCents, devMode: true }
+      }
 
       // 7. Integração Stripe — cria uma Checkout Session hospedada.
       //    Modelo "separate charges and transfers": a cobrança vai para a

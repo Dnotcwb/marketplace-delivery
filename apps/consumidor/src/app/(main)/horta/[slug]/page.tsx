@@ -8,6 +8,7 @@ import {
   listCategories,
   listHortasAtivas,
   listProducts,
+  getPlatformConfig,
 } from '@marketplace/shared-services'
 import type { Produtor } from '@marketplace/shared-types'
 import HortaCatalog from '@/components/HortaCatalog'
@@ -68,6 +69,8 @@ export default async function HortaSlugPage({
   const [initialCategories, initialProducts] = firstId
     ? await Promise.all([listCategories(firstId), listProducts(firstId)])
     : [[], []]
+
+  const { demoMode } = await getPlatformConfig()
 
   // Strip Timestamps para serialização Server→Client
   const { createdAt: _hca, updatedAt: _hua, ...sh } = horta
@@ -171,6 +174,7 @@ export default async function HortaSlugPage({
           initialProdutores={serializableProdutores}
           initialCategories={serializableCategories}
           initialProducts={serializableProducts}
+          demoMode={demoMode}
         />
       </div>
     </div>

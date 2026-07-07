@@ -14,6 +14,7 @@ const schema = z.object({
   platformName: z.string().min(2).max(60),
   supportEmail: z.string().email('E-mail inválido'),
   supportPhone: z.string().optional().default(''),
+  demoMode: z.boolean().default(false),
 })
 
 type FormData = z.infer<typeof schema>
@@ -44,6 +45,7 @@ export default function ConfiguracoesAdminPage() {
             platformName: d['platformName'] ?? 'Brota',
             supportEmail: d['supportEmail'] ?? '',
             supportPhone: d['supportPhone'] ?? '',
+            demoMode: d['demoMode'] === true,
           })
         } else {
           reset({
@@ -53,6 +55,7 @@ export default function ConfiguracoesAdminPage() {
             platformName: 'Brota',
             supportEmail: '',
             supportPhone: '',
+            demoMode: false,
           })
         }
       })
@@ -70,6 +73,7 @@ export default function ConfiguracoesAdminPage() {
         platformName: data.platformName,
         supportEmail: data.supportEmail,
         supportPhone: data.supportPhone,
+        demoMode: data.demoMode,
         updatedAt: serverTimestamp(),
       }, { merge: true })
       setStatus('ok')
@@ -117,6 +121,27 @@ export default function ConfiguracoesAdminPage() {
               <input {...register('supportPhone')} placeholder="(11) 99999-9999" className={inputCls} />
             </div>
           </div>
+        </section>
+
+        {/* Modo demonstração */}
+        <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              {...register('demoMode')}
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-amber-500"
+            />
+            <span>
+              <span className="block text-base font-bold text-neutral-800">
+                Modo demonstração (sem pagamento real)
+              </span>
+              <span className="mt-1 block text-sm text-neutral-600">
+                Quando ligado, os produtores vendem sem precisar de conta Stripe conectada e os
+                pedidos são confirmados automaticamente, sem cobrança. Use nesta fase de validação
+                com dados fictícios. <strong>Desligue antes de operar com pagamentos reais.</strong>
+              </span>
+            </span>
+          </label>
         </section>
 
         {/* Financeiro */}

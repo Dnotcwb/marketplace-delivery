@@ -10,6 +10,7 @@ import {
   listProducts,
   listProdutoresAprovados,
   listReviews,
+  getPlatformConfig,
 } from '@marketplace/shared-services'
 import type { ProdutorCertification } from '@marketplace/shared-types'
 import ProdutorCatalog from '@/components/ProdutorCatalog'
@@ -68,11 +69,12 @@ export default async function ProdutorSlugPage({
   const produtor = await getProdutor(slug)
   if (!produtor) notFound()
 
-  const [horta, categories, allProducts, reviews] = await Promise.all([
+  const [horta, categories, allProducts, reviews, platformConfig] = await Promise.all([
     produtor.hortaId ? getHortaById(produtor.hortaId) : null,
     listCategories(produtor.id),
     listProducts(produtor.id),
     listReviews(produtor.id),
+    getPlatformConfig(),
   ])
 
   // Strip Firestore Timestamps — not JSON-serializable for Server→Client props
@@ -266,6 +268,7 @@ export default async function ProdutorSlugPage({
           initialCategories={serializableCategories}
           initialProducts={serializableProducts}
           horta={serializableHorta}
+          demoMode={platformConfig.demoMode}
         />
 
         {/* Avaliações (estáticas — SSR) */}
