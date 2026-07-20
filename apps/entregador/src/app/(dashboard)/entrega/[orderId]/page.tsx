@@ -4,7 +4,7 @@ import { firestore } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
 import type { Order } from '@marketplace/shared-types'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { driverPayoutOf, formatCurrency } from '@marketplace/shared-utils'
 import { arrayUnion, doc, Timestamp, updateDoc } from 'firebase/firestore'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -246,10 +246,10 @@ export default function EntregaDetailPage() {
         </div>
       </section>
 
-      {/* Taxa do entregador */}
+      {/* Ganho do entregador */}
       <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-brand-700">Sua taxa de entrega</span>
-        <span className="text-lg font-bold text-brand-700">{formatCurrency(order.deliveryFeeInCents)}</span>
+        <span className="text-sm font-medium text-brand-700">Você recebe por esta entrega</span>
+        <span className="text-lg font-bold text-brand-700">{formatCurrency(driverPayoutOf(order))}</span>
       </div>
 
       {/* Ação */}

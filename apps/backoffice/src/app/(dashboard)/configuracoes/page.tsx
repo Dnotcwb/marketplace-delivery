@@ -9,6 +9,8 @@ import { z } from 'zod'
 
 const schema = z.object({
   platformCommissionPct: z.coerce.number().min(0).max(100),
+  minOrderValueInCents: z.coerce.number().min(0),
+  deliveryDriverSharePct: z.coerce.number().min(0).max(100),
   minDeliveryFeeInCents: z.coerce.number().min(0),
   maxDeliveryFeeInCents: z.coerce.number().min(0),
   platformName: z.string().min(2).max(60),
@@ -40,6 +42,8 @@ export default function ConfiguracoesAdminPage() {
           const d = snap.data()
           reset({
             platformCommissionPct: d['platformCommissionPct'] ?? 10,
+            minOrderValueInCents: (d['minOrderValueInCents'] ?? 3000) / 100,
+            deliveryDriverSharePct: d['deliveryDriverSharePct'] ?? 75,
             minDeliveryFeeInCents: (d['minDeliveryFeeInCents'] ?? 0) / 100,
             maxDeliveryFeeInCents: (d['maxDeliveryFeeInCents'] ?? 2000) / 100,
             platformName: d['platformName'] ?? 'Brota',
@@ -50,6 +54,8 @@ export default function ConfiguracoesAdminPage() {
         } else {
           reset({
             platformCommissionPct: 10,
+            minOrderValueInCents: 30,
+            deliveryDriverSharePct: 75,
             minDeliveryFeeInCents: 0,
             maxDeliveryFeeInCents: 20,
             platformName: 'Brota',
@@ -68,6 +74,8 @@ export default function ConfiguracoesAdminPage() {
     try {
       await setDoc(doc(firestore, 'appConfig', 'platform'), {
         platformCommissionPct: data.platformCommissionPct,
+        minOrderValueInCents: Math.round(data.minOrderValueInCents * 100),
+        deliveryDriverSharePct: data.deliveryDriverSharePct,
         minDeliveryFeeInCents: Math.round(data.minDeliveryFeeInCents * 100),
         maxDeliveryFeeInCents: Math.round(data.maxDeliveryFeeInCents * 100),
         platformName: data.platformName,
@@ -168,6 +176,35 @@ export default function ConfiguracoesAdminPage() {
               Aplicada por padrão a novos produtores. Pode ser sobrescrita por produtor.
             </p>
             {errors.platformCommissionPct && <p className="mt-1 text-xs text-red-500">{errors.platformCommissionPct.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Pedido mínimo da plataforma (R$)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">R$</span>
+                <input {...register('minOrderValueInCents')} type="number" min={0} step={1} placeholder="30" className={`${inputCls} pl-9`} />
+              </div>
+              <p className="mt-1 text-xs text-neutral-400">
+                Piso válido em todas as hortas. Vale o maior entre este e o mínimo da própria horta.
+              </p>
+              {errors.minOrderValueInCents && <p className="mt-1 text-xs text-red-500">{errors.minOrderValueInCents.message}</p>}
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Repasse ao entregador (%)
+              </label>
+              <div className="relative">
+                <input {...register('deliveryDriverSharePct')} type="number" min={0} max={100} step={1} placeholder="75" className={`${inputCls} pr-8`} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">%</span>
+              </div>
+              <p className="mt-1 text-xs text-neutral-400">
+                Fatia da taxa de entrega que vai ao entregador. O restante é a taxa de intermediação da plataforma.
+              </p>
+              {errors.deliveryDriverSharePct && <p className="mt-1 text-xs text-red-500">{errors.deliveryDriverSharePct.message}</p>}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

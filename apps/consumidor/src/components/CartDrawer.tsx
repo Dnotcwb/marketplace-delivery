@@ -1,15 +1,23 @@
 'use client'
 
-import { useCartActions, useCartData } from '@marketplace/shared-services'
+import { getPlatformConfig, useCartActions, useCartData } from '@marketplace/shared-services'
 import { PRODUCT_UNIT_LABELS } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { DEFAULT_MIN_ORDER_IN_CENTS, effectiveMinOrderInCents, formatCurrency } from '@marketplace/shared-utils'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function CartDrawer() {
   const { isOpen, items, horta, subtotalInCents } = useCartData()
   const { closeCart, removeItem, updateQuantity } = useCartActions()
+
+  // Piso de pedido da plataforma (o mínimo efetivo é o maior entre este e o da horta).
+  const [platformMinInCents, setPlatformMinInCents] = useState(DEFAULT_MIN_ORDER_IN_CENTS)
+  useEffect(() => {
+    getPlatformConfig()
+      .then((cfg) => setPlatformMinInCents(cfg.minOrderValueInCents))
+      .catch(() => {})
+  }, [])
 
   // Fecha com Escape
   useEffect(() => {
@@ -31,8 +39,10 @@ export default function CartDrawer() {
 
   const deliveryFee = horta?.deliveryFeeInCents ?? 0
   const total = subtotalInCents + deliveryFee
-  const belowMinimum =
-    horta && subtotalInCents < horta.minOrderValueInCents
+  const minOrderInCents = horta
+    ? effectiveMinOrderInCents(horta.minOrderValueInCents, platformMinInCents)
+    : 0
+  const belowMinimum = horta && subtotalInCents < minOrderInCents
 
   return (
     <>
@@ -180,8 +190,8 @@ export default function CartDrawer() {
 
             {belowMinimum && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                Pedido mínimo: {formatCurrency(horta!.minOrderValueInCents)}. Faltam{' '}
-                {formatCurrency(horta!.minOrderValueInCents - subtotalInCents)}.
+                Pedido mínimo: {formatCurrency(minOrderInCents)}. Faltam{' '}
+                {formatCurrency(minOrderInCents - subtotalInCents)}.
               </p>
             )}
 

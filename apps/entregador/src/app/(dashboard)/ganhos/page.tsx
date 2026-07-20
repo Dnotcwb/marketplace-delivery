@@ -1,7 +1,7 @@
 'use client'
 
 import type { Order } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { driverPayoutOf, formatCurrency } from '@marketplace/shared-utils'
 import { useMemo, useState } from 'react'
 import { useDriverData } from '@/components/DriverDataProvider'
 
@@ -31,8 +31,8 @@ export default function GanhosPage() {
     [delivered, cutoff],
   )
 
-  const totalEarned = filtered.reduce((s, o) => s + o.deliveryFeeInCents, 0)
-  const totalAllTime = delivered.reduce((s, o) => s + o.deliveryFeeInCents, 0)
+  const totalEarned = filtered.reduce((s, o) => s + driverPayoutOf(o), 0)
+  const totalAllTime = delivered.reduce((s, o) => s + driverPayoutOf(o), 0)
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
@@ -108,7 +108,7 @@ export default function GanhosPage() {
                     {order.deliveryAddress.neighborhood} — {order.deliveryAddress.city}
                   </p>
                 </div>
-                <p className="font-semibold text-brand-600">{formatCurrency(order.deliveryFeeInCents)}</p>
+                <p className="font-semibold text-brand-600">{formatCurrency(driverPayoutOf(order))}</p>
               </li>
             ))}
           </ul>

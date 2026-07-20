@@ -1,7 +1,7 @@
 'use client'
 
 import type { OrderStatus } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { driverPayoutOf, formatCurrency } from '@marketplace/shared-utils'
 import { Timestamp } from 'firebase/firestore'
 import { useDriverData } from '@/components/DriverDataProvider'
 
@@ -54,7 +54,7 @@ export default function HistoricoPage() {
                     <p className="mt-1 text-xs text-neutral-400">{fmtDate(order.deliveredAt ?? order.createdAt)}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="font-bold text-brand-600">{formatCurrency(order.deliveryFeeInCents)}</p>
+                    <p className="font-bold text-brand-600">{formatCurrency(driverPayoutOf(order))}</p>
                     {badge && (
                       <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${badge.cls}`}>
                         {badge.label}

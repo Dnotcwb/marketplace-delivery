@@ -215,7 +215,12 @@ export interface Order {
   deliveryAddress: DeliveryAddress
 
   subtotalInCents: number
+  /** Taxa de entrega cobrada do cliente (total) */
   deliveryFeeInCents: number
+  /** Parte da taxa de entrega repassada ao entregador (snapshot da divisão no pedido) */
+  driverPayoutInCents?: number
+  /** Parte da taxa de entrega retida pela plataforma (taxa de intermediação) */
+  platformDeliveryFeeInCents?: number
   discountInCents: number
   totalInCents: number
 

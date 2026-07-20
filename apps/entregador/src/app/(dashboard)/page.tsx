@@ -3,7 +3,7 @@
 import { firestore, functions } from '@marketplace/shared-firebase'
 import { useAuth } from '@marketplace/shared-services'
 import type { Order } from '@marketplace/shared-types'
-import { formatCurrency } from '@marketplace/shared-utils'
+import { driverPayoutOf, formatCurrency } from '@marketplace/shared-utils'
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useEffect, useState } from 'react'
@@ -137,8 +137,8 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="font-bold text-brand-700">{formatCurrency(activeDelivery.deliveryFeeInCents)}</p>
-                <p className="text-xs text-brand-500">taxa de entrega</p>
+                <p className="font-bold text-brand-700">{formatCurrency(driverPayoutOf(activeDelivery))}</p>
+                <p className="text-xs text-brand-500">seu ganho</p>
                 <span className="mt-1 inline-block text-sm font-medium text-brand-600">Ver detalhes →</span>
               </div>
             </div>
@@ -227,9 +227,9 @@ export default function HomePage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-lg font-bold text-brand-600">
-                      {formatCurrency(order.deliveryFeeInCents)}
+                      {formatCurrency(driverPayoutOf(order))}
                     </p>
-                    <p className="text-xs text-neutral-400">taxa</p>
+                    <p className="text-xs text-neutral-400">seu ganho</p>
                   </div>
                 </div>
 

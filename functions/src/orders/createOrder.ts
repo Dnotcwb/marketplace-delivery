@@ -137,7 +137,21 @@ export const createOrder = onCall(
       // Modo demonstração (appConfig/platform.demoMode): opera sem pagamento
       // real — produtores vendem sem Stripe e o pedido é confirmado na hora.
       const platformCfgSnap = await db.collection('appConfig').doc('platform').get()
-      const demoMode = platformCfgSnap.data()?.['demoMode'] === true
+      const platformCfg = platformCfgSnap.data() ?? {}
+      const demoMode = platformCfg['demoMode'] === true
+
+      // Parâmetros econômicos da plataforma (com fallbacks — funções são um
+      // pacote isolado, não importam @marketplace/shared-utils).
+      const DEFAULT_MIN_ORDER_IN_CENTS = 3000
+      const DEFAULT_DRIVER_SHARE_PCT = 75
+      const platformMinOrderInCents =
+        typeof platformCfg['minOrderValueInCents'] === 'number'
+          ? (platformCfg['minOrderValueInCents'] as number)
+          : DEFAULT_MIN_ORDER_IN_CENTS
+      const driverSharePct =
+        typeof platformCfg['deliveryDriverSharePct'] === 'number'
+          ? (platformCfg['deliveryDriverSharePct'] as number)
+          : DEFAULT_DRIVER_SHARE_PCT
 
       // 1. Valida a horta
       console.log('Etapa 1: validando horta')
@@ -304,7 +318,11 @@ export const createOrder = onCall(
         }
       }
 
-      const minOrder = (horta['minOrderValueInCents'] as number) ?? 0
+      // Piso efetivo: o maior entre o mínimo da horta e o piso da plataforma.
+      const minOrder = Math.max(
+        (horta['minOrderValueInCents'] as number) ?? 0,
+        platformMinOrderInCents,
+      )
 
       if (minOrder > 0 && subtotalGlobalInCents < minOrder) {
         throw new HttpsError(
@@ -356,6 +374,10 @@ export const createOrder = onCall(
       const totalInCents = subtotalGlobalInCents + deliveryFeeInCents - discountInCents
       console.log('Total calculado (cents):', totalInCents)
 
+      // Divide a taxa de entrega entre entregador e plataforma.
+      const driverPayoutInCents = Math.round(deliveryFeeInCents * (driverSharePct / 100))
+      const platformDeliveryFeeInCents = deliveryFeeInCents - driverPayoutInCents
+
       console.log('Etapa 4: dados do cliente')
       const user = userSnap.data() ?? {}
       const customerName = (user['displayName'] as string) ?? (user['name'] as string) ?? ''
@@ -401,6 +423,10 @@ export const createOrder = onCall(
         deliveryAddress: deliveryAddressClean,
         subtotalInCents: subtotalGlobalInCents,
         deliveryFeeInCents,
+        // Divisão da taxa de entrega (snapshot no pedido): entregador recebe
+        // driverSharePct%, a plataforma retém o restante como intermediação.
+        driverPayoutInCents,
+        platformDeliveryFeeInCents,
         ...(deliveryDistanceKm !== undefined ? { deliveryDistanceKm } : {}),
         discountInCents,
         totalInCents,

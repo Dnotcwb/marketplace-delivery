@@ -1,5 +1,6 @@
 export * from './currency'
 export * from './date'
 export * from './delivery'
+export * from './platform-defaults'
 export * from './validators'
 export * from './slug'

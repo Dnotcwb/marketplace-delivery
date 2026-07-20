@@ -815,12 +815,44 @@ export default function CheckoutPage() {
 
           {/* Forma de pagamento */}
           <section className="rounded-2xl border border-neutral-200 bg-white p-5">
-            <h2 className="mb-2 text-base font-bold text-neutral-900">Pagamento</h2>
-            <p className="text-sm text-neutral-500">
-              Você escolhe entre <span className="font-medium">PIX</span> ou{' '}
-              <span className="font-medium">cartão de crédito</span> na próxima etapa, em uma
-              página de pagamento segura.
+            <h2 className="mb-1 text-base font-bold text-neutral-900">Pagamento</h2>
+            <p className="mb-4 text-sm text-neutral-500">
+              Escolha como pagar na próxima etapa, em uma página segura.
             </p>
+
+            {/* PIX — recomendado */}
+            <div className="relative rounded-xl border-2 border-brand-500 bg-brand-50/60 p-4">
+              <span className="absolute -top-2.5 left-4 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Recomendado
+              </span>
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-xl">
+                  ⚡
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-neutral-900">PIX</p>
+                  <p className="text-sm text-neutral-600">
+                    Aprovação na hora e seu pedido entra na fila do produtor mais rápido.
+                    Pague com o app do seu banco.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cartão — alternativa */}
+            <div className="mt-3 rounded-xl border border-neutral-200 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-xl">
+                  💳
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-neutral-900">Cartão de crédito</p>
+                  <p className="text-sm text-neutral-600">
+                    Também disponível na página de pagamento.
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Cupom */}
