@@ -9,11 +9,11 @@
 // SSR/ISR a partir de uma única função, então aquecer uma rota aquece o app.
 
 const URLS = [
-  'https://marketplace-delivery-consumidor.netlify.app/',
-  'https://marketplace-delivery-produtor.netlify.app/login',
-  'https://marketplace-delivery-backoffice.netlify.app/login',
-  'https://marketplace-entregador.netlify.app/login',
-  'https://marketplace-delivery-horta.netlify.app/login',
+  'https://brotadigital.com.br/',
+  'https://produtor.brotadigital.com.br/login',
+  'https://admin.brotadigital.com.br/login',
+  'https://entregador.brotadigital.com.br/login',
+  'https://horta.brotadigital.com.br/login',
 ]
 
 export default async () => {

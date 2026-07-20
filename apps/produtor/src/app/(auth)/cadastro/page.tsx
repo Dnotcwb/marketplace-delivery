@@ -134,7 +134,7 @@ export default function CadastroPage() {
       <p className="mt-6 text-center text-xs text-neutral-400">
         Ao criar uma conta você concorda com nossos{' '}
         <a
-          href="https://marketplace-delivery-consumidor.netlify.app/termos"
+          href="https://brotadigital.com.br/termos"
           target="_blank"
           rel="noopener noreferrer"
           className="underline"
@@ -143,7 +143,7 @@ export default function CadastroPage() {
         </a>{' '}
         e{' '}
         <a
-          href="https://marketplace-delivery-consumidor.netlify.app/privacidade"
+          href="https://brotadigital.com.br/privacidade"
           target="_blank"
           rel="noopener noreferrer"
           className="underline"

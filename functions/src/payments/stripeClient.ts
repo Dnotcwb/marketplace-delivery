@@ -29,7 +29,7 @@ export function getStripe(): StripeClient {
 
 /** URLs dos apps (usadas em redirects de checkout e onboarding). */
 export const CONSUMIDOR_URL =
-  process.env['CONSUMIDOR_APP_URL'] ?? 'https://marketplace-delivery-consumidor.netlify.app'
+  process.env['CONSUMIDOR_APP_URL'] ?? 'https://brotadigital.com.br'
 
 export const PRODUTOR_URL =
-  process.env['PRODUTOR_APP_URL'] ?? 'https://marketplace-delivery-produtor.netlify.app'
+  process.env['PRODUTOR_APP_URL'] ?? 'https://produtor.brotadigital.com.br'

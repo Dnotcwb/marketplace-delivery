@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     'Faça entregas com o Brota, com flexibilidade de horários e ganhos por corrida na sua região.',
 }
 
-const ENTREGADOR_URL = 'https://marketplace-entregador.netlify.app/cadastro'
+const ENTREGADOR_URL = 'https://entregador.brotadigital.com.br/cadastro'
 
 const BENEFICIOS = [
   { icon: '🕒', title: 'Flexibilidade total', text: 'Você decide os dias e horários que quer trabalhar.' },

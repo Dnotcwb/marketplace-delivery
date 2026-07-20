@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     'Venda seus produtos frescos direto ao consumidor pelo Brota, com comissão justa e recebimento automático.',
 }
 
-const PRODUTOR_URL = 'https://marketplace-delivery-produtor.netlify.app/cadastro'
+const PRODUTOR_URL = 'https://produtor.brotadigital.com.br/cadastro'
 
 const BENEFICIOS = [
   { icon: '💰', title: 'Comissão justa', text: 'Transparente e menor que a dos grandes aplicativos.' },
