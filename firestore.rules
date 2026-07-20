@@ -97,7 +97,11 @@ service cloud.firestore {
     match /produtores/{produtorId} {
       allow read: if resource.data.status == 'approved'
                   || isOwnerOfProdutor(produtorId)
-                  || (isProducer() && resource.data.ownerUid == userId())
+                  // Dono lê o PRÓPRIO cadastro em qualquer status, mesmo sem a
+                  // claim 'produtor' (que só é setada após aprovação). Sem isto
+                  // o ProdutorGuard não consegue distinguir pendente de aprovado
+                  // e o produtor com cadastro pendente vê "Erro ao verificar acesso".
+                  || (isAuthenticated() && resource.data.ownerUid == userId())
                   || hortaManagerPodeVerProdutor(produtorId)
                   || isAdmin();
 
