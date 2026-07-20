@@ -41,7 +41,7 @@ export default function ConfiguracoesAdminPage() {
         if (snap.exists()) {
           const d = snap.data()
           reset({
-            platformCommissionPct: d['platformCommissionPct'] ?? 10,
+            platformCommissionPct: d['platformCommissionPct'] ?? 30,
             minOrderValueInCents: (d['minOrderValueInCents'] ?? 3000) / 100,
             deliveryDriverSharePct: d['deliveryDriverSharePct'] ?? 75,
             minDeliveryFeeInCents: (d['minDeliveryFeeInCents'] ?? 0) / 100,
@@ -53,7 +53,7 @@ export default function ConfiguracoesAdminPage() {
           })
         } else {
           reset({
-            platformCommissionPct: 10,
+            platformCommissionPct: 30,
             minOrderValueInCents: 30,
             deliveryDriverSharePct: 75,
             minDeliveryFeeInCents: 0,

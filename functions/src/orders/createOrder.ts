@@ -90,13 +90,14 @@ async function geocodeCep(cep: string): Promise<{ lat: number; lng: number } | n
   }
 }
 
-// Comissão da plataforma definida POR PRODUTOR em produtores/{id}.commission,
-// como percentual 0–100 (é assim que o backoffice grava o campo).
-const DEFAULT_COMMISSION_PCT = 10
-
-function commissionPctOf(produtorData: FirebaseFirestore.DocumentData): number {
+// Comissão aplicada a um produtor: usa produtores/{id}.commission se definida
+// (0–100), senão cai no padrão da plataforma passado como argumento.
+function commissionPctOf(
+  produtorData: FirebaseFirestore.DocumentData,
+  platformDefaultPct: number,
+): number {
   const raw = produtorData['commission']
-  return typeof raw === 'number' && raw >= 0 && raw <= 100 ? raw : DEFAULT_COMMISSION_PCT
+  return typeof raw === 'number' && raw >= 0 && raw <= 100 ? raw : platformDefaultPct
 }
 
 export const createOrder = onCall(
@@ -144,6 +145,7 @@ export const createOrder = onCall(
       // pacote isolado, não importam @marketplace/shared-utils).
       const DEFAULT_MIN_ORDER_IN_CENTS = 3000
       const DEFAULT_DRIVER_SHARE_PCT = 75
+      const DEFAULT_COMMISSION_PCT = 30
       const platformMinOrderInCents =
         typeof platformCfg['minOrderValueInCents'] === 'number'
           ? (platformCfg['minOrderValueInCents'] as number)
@@ -152,6 +154,13 @@ export const createOrder = onCall(
         typeof platformCfg['deliveryDriverSharePct'] === 'number'
           ? (platformCfg['deliveryDriverSharePct'] as number)
           : DEFAULT_DRIVER_SHARE_PCT
+      // Comissão padrão da plataforma: usa appConfig.platformCommissionPct
+      // (o que o backoffice mostra), com fallback de 30%. Um produtor pode ter
+      // comissão própria em produtores/{id}.commission, que sobrescreve esta.
+      const platformCommissionPct =
+        typeof platformCfg['platformCommissionPct'] === 'number'
+          ? (platformCfg['platformCommissionPct'] as number)
+          : DEFAULT_COMMISSION_PCT
 
       // 1. Valida a horta
       console.log('Etapa 1: validando horta')
@@ -445,7 +454,7 @@ export const createOrder = onCall(
 
       const filhoBatch = db.batch()
       for (const [produtorId, group] of produtorGroups) {
-        const commissionPct = commissionPctOf(group.produtorData)
+        const commissionPct = commissionPctOf(group.produtorData, platformCommissionPct)
         const valorRepasse = Math.round(group.subtotalInCents * (1 - commissionPct / 100))
         const filhoRef = db.collection('pedidos_filhos').doc()
         filhoBatch.set(filhoRef, {
