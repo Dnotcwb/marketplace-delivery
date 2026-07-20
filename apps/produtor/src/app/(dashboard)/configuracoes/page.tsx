@@ -6,6 +6,7 @@ import {
   callRefreshStripeAccountStatus,
 } from '@marketplace/shared-services'
 import { zodResolver } from '@hookform/resolvers/zod'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -242,10 +243,15 @@ function RecebimentoSection({
         </p>
       ) : (
         <>
-          <p className="mb-4 text-sm text-neutral-500">
+          <p className="mb-3 text-sm text-neutral-500">
             Para vender e receber pelos pedidos, conecte sua conta de recebimento.
             O cadastro é feito de forma segura na Stripe (pede seus dados e uma conta
             bancária). {hasAccount && 'Seu cadastro ficou incompleto — continue de onde parou.'}
+          </p>
+          <p className="mb-4 text-sm">
+            <Link href="/recebimento" className="font-medium text-brand-600 hover:underline">
+              Ver o passo a passo e a lista de documentos →
+            </Link>
           </p>
           {err && <p className="mb-3 text-sm text-red-500">{err}</p>}
           <button
